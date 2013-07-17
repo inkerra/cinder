@@ -28,6 +28,7 @@ import warnings
 from oslo.config import cfg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
+from sqlalchemy import and_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import literal_column
 from sqlalchemy.sql import func
@@ -1006,6 +1007,12 @@ def volume_create(context, values):
     with session.begin():
         volume_ref.save(session=session)
 
+    volume_permission_create(context, {'volume_id': values['id'],
+                                       'type': 'user',
+                                       'user_or_group_id': context.user_id,
+                                       'access_permission': 7
+                                       })
+
     return _volume_get(context, values['id'], session=session)
 
 
@@ -1066,6 +1073,11 @@ def volume_destroy(context, volume_id):
             update({'deleted': True,
                     'deleted_at': timeutils.utcnow(),
                     'updated_at': literal_column('updated_at')})
+        session.query(models.VolumeACLPermission).\
+            filter_by(volume_id=volume_id).\
+            update({'deleted': True,
+                    'deleted_at': timeutils.utcnow(),
+                    'updated_at': literal_column('updated_at')})
 
 
 @require_admin_context
@@ -1086,7 +1098,8 @@ def _volume_get_query(context, session=None, project_only=False):
     return model_query(context, models.Volume, session=session,
                        project_only=project_only).\
         options(joinedload('volume_metadata')).\
-        options(joinedload('volume_type'))
+        options(joinedload('volume_type')).\
+        options(joinedload('volume_acl_permissions'))
 
 
 @require_context
@@ -1157,6 +1170,161 @@ def volume_get_all_by_project(context, project_id, marker, limit, sort_key,
                                            sort_dir=sort_dir)
 
     return query.all()
+
+
+@require_context
+def volume_permission_get(context, vol_perm_id, session=None):
+    query = model_query(context, models.VolumeACLPermission, session=session).\
+        filter_by(id=vol_perm_id)
+
+    result = query.first()
+
+    if not result:
+        raise exception.VolumePermissionNotFound(volume_permission_id=
+                                                 vol_perm_id)
+
+    return result
+
+
+def _translate_volume_permissions(permissions):
+    results = []
+    for permission in permissions:
+        r = {}
+        r['id'] = permission['id']
+        r['volume_id'] = permission['volume_id']
+        r['type'] = permission['type']
+        r['user_or_group_id'] = permission['user_or_group_id']
+        r['access_permission'] = permission['access_permission']
+        results.append(r)
+    return results
+
+
+@require_context
+def volume_permission_get_all(cxt, session=None):
+    if cxt.is_admin:
+        results = model_query(cxt, models.VolumeACLPermission).all()
+    else:
+        results = []
+        all_volumes = _volume_get_query(cxt).\
+            filter_by(project_id=cxt.project_id).all()
+        for vol in all_volumes:
+            results.extend(volume_permission_get_all_by_volume(cxt, vol['id'],
+                                                               session))
+
+    return _translate_volume_permissions(results)
+
+
+@require_context
+def volume_permission_get_all_by_volume(cxt, vol_id, session=None):
+    if volume_permission_has_read_perm_access(cxt, vol_id, session=session):
+        acl = models.VolumeACLPermission
+        q = model_query(cxt, acl, session=session).\
+            filter(acl.volume_id == vol_id)
+        return q.all()
+    return []
+
+
+@require_context
+def volume_permission_get_by_user(cxt, vol_id, session=None):
+    volume_permission = models.VolumeACLPermission
+
+    vol_p_q = model_query(cxt, volume_permission, session=session).\
+        filter(volume_permission.volume_id == vol_id)
+    user_p_q = vol_p_q.filter(volume_permission.type == 'user')
+
+    user_p = user_p_q.filter(volume_permission.user_or_group_id ==
+                             cxt.user_id).first()
+    if user_p:
+        return user_p
+
+    everyone_p = user_p_q.filter(volume_permission.user_or_group_id ==
+                                 'everyone').first()
+    if everyone_p:
+        return everyone_p
+
+    perm = None
+    group_perms = vol_p_q.filter(volume_permission.type == 'group').all()
+    for gp in group_perms:
+        if cxt.user_id in _list_users_in_group(gp.user_or_group_id):  #TODO
+            if not perm or perm.access_permission < gp.access_permission:
+                perm = gp
+
+    return perm
+
+
+@require_context
+def volume_permission_get_existent(context, volume_id, permission_type,
+                                   user_or_group_id, session=None):
+    volume_permission = models.VolumeACLPermission
+    query = model_query(context, volume_permission, session=session).\
+        filter(volume_permission.volume_id == volume_id).\
+        filter(volume_permission.type == permission_type).\
+        filter(volume_permission.user_or_group_id == user_or_group_id)
+    return query.first()
+
+
+def _volume_permission_has_perm_access(cxt, vol_id, access, session=None):
+    if cxt.is_admin:
+        return True
+    volume_permission = models.VolumeACLPermission
+    q = model_query(cxt, volume_permission, session=session).\
+        filter(volume_permission.volume_id == vol_id).\
+        filter(volume_permission.access_permission >= access)
+    perms = q.all()
+    user_type_perms = filter(lambda p: p.type == 'user', perms)
+    users = [r.user_or_group_id for r in user_type_perms]
+    if cxt.user_id in users or 'everyone' in users:
+        return True
+    for p in filter(lambda p: p.type == 'group', perms):
+        group_users = _list_users_in_group(group_id)  #TODO
+        for user_id in group_users:
+            if user_id == cxt.user_id:
+                return True
+    return False
+
+
+@require_context
+def volume_permission_has_read_perm_access(cxt, vol_id, session=None):
+    vol = volume_get(cxt, vol_id)
+    if vol.user_id == cxt.user_id:
+        return True
+    return _volume_permission_has_perm_access(cxt, vol_id, 3, session)
+
+
+@require_context
+def volume_permission_has_write_perm_access(cxt, vol_id, session=None):
+    return _volume_permission_has_perm_access(cxt, vol_id, 4, session)
+
+
+@require_context
+def volume_permission_create(context, values):
+    session = get_session()
+    if not values.get('id'):
+        vol_perm = \
+            volume_permission_get_existent(context, values['volume_id'],
+                                           values['type'],
+                                           values['user_or_group_id'],
+                                           session=session)
+        if vol_perm:
+            values['id'] = vol_perm['id']
+            volume_permission = vol_perm
+
+    if not values.get('id'):
+        volume_permission = models.VolumeACLPermission()
+    with session.begin():
+        volume_permission.update(values)
+        volume_permission.save(session=session)
+    return volume_permission
+
+
+def volume_permission_delete(context, vol_perm_id):
+    session = get_session()
+    with session.begin():
+        session.query(models.VolumeACLPermission).\
+            filter_by(id=vol_perm_id).\
+            update({'deleted': True,
+                    'deleted_at': timeutils.utcnow(),
+                    'updated_at': literal_column('updated_at')})
 
 
 @require_admin_context

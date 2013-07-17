@@ -461,6 +461,12 @@ class API(base.Base):
         rv = self.db.volume_get(context, volume_id)
         return dict(rv.iteritems())
 
+    def get_volume_permission(self, context, volume_id):
+        return self.db.volume_permission_get_by_user(context, volume_id)
+
+    def get_all_volume_permissions(self, context, volume_id):
+        return self.db.volume_permission_get_all_by_volume(context, volume_id)
+
     def get_all_snapshots(self, context, search_opts=None):
         check_policy(context, 'get_all_snapshots')
 

@@ -283,6 +283,13 @@ def _check_http(brain, match_kind, match, target_dict, cred_dict):
     return f.read() == "True"
 
 
+@register('write_permission_access')
+def _check_write_permission_access(brain, match_kind, match, target_dict,
+                                   cred_dict):
+    """Check write permission access."""
+    return match == str(target_dict.get('write_permission_access', None))
+
+
 @register(None)
 def _check_generic(brain, match_kind, match, target_dict, cred_dict):
     """Check an individual match.
