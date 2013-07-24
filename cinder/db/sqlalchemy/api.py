@@ -25,6 +25,7 @@ import sys
 import uuid
 import warnings
 
+import keystoneclient.v3.client
 from oslo.config import cfg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
@@ -54,6 +55,29 @@ get_engine = db_session.get_engine
 get_session = db_session.get_session
 
 _DEFAULT_QUOTA_NAME = 'default'
+
+config = CONF
+extra_opts = [
+    cfg.StrOpt('keystone-auth-uri',
+               help='Authentication endpoint'),
+    cfg.StrOpt('keystone-admin-tenant-name',
+               help='Administrative user\'s tenant name'),
+    cfg.StrOpt('keystone-admin-user',
+               help='Administrative user\'s id'),
+    cfg.StrOpt('keystone-admin-password',
+               help='Administrative user\'s password',
+               secret=True),
+]
+config.register_opts(extra_opts)
+config(project='cinder', prog='cinder-api')
+auth_uri = config.keystone_auth_uri
+admin_tenant_name = config.keystone_admin_tenant_name
+admin_user = config.keystone_admin_user
+admin_password = config.keystone_admin_password
+ks = keystoneclient.v3.client.Client(username=admin_user,
+                                       password=admin_password,
+                                       tenant_name=admin_tenant_name,
+                                       auth_url=auth_uri)
 
 
 def get_backend():
@@ -1224,6 +1248,10 @@ def volume_permission_get_all_by_volume(cxt, vol_id, session=None):
     return []
 
 
+def _check_user_in_group(user_id, group_id):
+    return ks.groups.check_user_in_group(user_id, group_id)[0] == 200
+
+
 @require_context
 def volume_permission_get_by_user(cxt, vol_id, session=None):
     volume_permission = models.VolumeACLPermission
@@ -1245,7 +1273,7 @@ def volume_permission_get_by_user(cxt, vol_id, session=None):
     perm = None
     group_perms = vol_p_q.filter(volume_permission.type == 'group').all()
     for gp in group_perms:
-        if cxt.user_id in _list_users_in_group(gp.user_or_group_id):  #TODO
+        if _check_user_in_group(cxt.user_id, gp.user_or_group_id):
             if not perm or perm.access_permission < gp.access_permission:
                 perm = gp
 
@@ -1276,10 +1304,8 @@ def _volume_permission_has_perm_access(cxt, vol_id, access, session=None):
     if cxt.user_id in users or 'everyone' in users:
         return True
     for p in filter(lambda p: p.type == 'group', perms):
-        group_users = _list_users_in_group(group_id)  #TODO
-        for user_id in group_users:
-            if user_id == cxt.user_id:
-                return True
+        if _check_user_in_group(cxt.user_id, p.user_or_group_id):
+            return True
     return False
 
 

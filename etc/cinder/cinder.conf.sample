@@ -3,6 +3,10 @@
 ####################
 
 [DEFAULT]
+keystone_auth_uri = %SERVICE_ENDPOINT%
+keystone_admin_tenant_name = %SERVICE_TENANT_NAME%
+keystone_admin_user = %SERVICE_USER%
+keystone_admin_password = %SERVICE_PASSWORD%
 
 #
 # Options defined in cinder.exception

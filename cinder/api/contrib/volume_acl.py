@@ -180,7 +180,7 @@ class VolumeACLController(wsgi.Controller):
                   context=context)
 
         try:
-            self.volume_acl_api.delete(context, volume_permission_id=id)
+            self.volume_acl_api.delete(context, id)
         except exception.VolumePermissionNotFound as error:
             raise exc.HTTPNotFound(explanation=unicode(error))
         return webob.Response(status_int=202)
