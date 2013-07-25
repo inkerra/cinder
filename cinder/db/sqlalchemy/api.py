@@ -1297,9 +1297,6 @@ def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
                                        session=None):
     if cxt.is_admin:
         return True
-    vol = volume_get(cxt, vol_id)
-    if vol.user_id == cxt.user_id:
-        return True
     perms = _volume_permissions_get_by_volume(cxt, vol_id, session).\
         filter(access_filter).\
         all()
