@@ -1253,7 +1253,7 @@ def volume_permission_get_all_by_volume(cxt, vol_id, session=None):
 
 
 def _check_user_in_group(user_id, group_id):
-    return ks.groups.check_user_in_group(user_id, group_id)[0] == 200
+    return ks.groups.check_user_in_group(user_id, group_id)
 
 
 @require_context
