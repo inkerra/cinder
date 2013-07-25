@@ -1196,6 +1196,13 @@ def volume_get_all_by_project(context, project_id, marker, limit, sort_key,
     return query.all()
 
 
+def _volume_permissions_get_by_volume(cxt, volume_id, session=None):
+    volume_permission = models.VolumeACLPermission
+    q = model_query(cxt, volume_permission, session=session).\
+        filter(volume_permission.volume_id == volume_id)
+    return q
+
+
 @require_context
 def volume_permission_get(context, vol_perm_id, session=None):
     query = model_query(context, models.VolumeACLPermission, session=session).\
@@ -1241,10 +1248,7 @@ def volume_permission_get_all(cxt, session=None):
 @require_context
 def volume_permission_get_all_by_volume(cxt, vol_id, session=None):
     if volume_permission_has_read_perm_access(cxt, vol_id, session=session):
-        acl = models.VolumeACLPermission
-        q = model_query(cxt, acl, session=session).\
-            filter(acl.volume_id == vol_id)
-        return q.all()
+        return _volume_permissions_get_by_volume(cxt, vol_id, session).all()
     return []
 
 
@@ -1256,8 +1260,7 @@ def _check_user_in_group(user_id, group_id):
 def volume_permission_get_by_user(cxt, vol_id, session=None):
     volume_permission = models.VolumeACLPermission
 
-    vol_p_q = model_query(cxt, volume_permission, session=session).\
-        filter(volume_permission.volume_id == vol_id)
+    vol_p_q = _volume_permissions_get_by_volume(cxt, vol_id, session)
     user_p_q = vol_p_q.filter(volume_permission.type == 'user')
 
     user_p = user_p_q.filter(volume_permission.user_or_group_id ==
@@ -1284,25 +1287,25 @@ def volume_permission_get_by_user(cxt, vol_id, session=None):
 def volume_permission_get_existent(context, volume_id, permission_type,
                                    user_or_group_id, session=None):
     volume_permission = models.VolumeACLPermission
-    query = model_query(context, volume_permission, session=session).\
-        filter(volume_permission.volume_id == volume_id).\
+    query = _volume_permissions_get_by_volume(context, volume_id, session).\
         filter(volume_permission.type == permission_type).\
         filter(volume_permission.user_or_group_id == user_or_group_id)
     return query.first()
 
 
-def _volume_permission_has_perm_access(cxt, vol_id, access, session=None):
+def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
+                                       session=None):
     if cxt.is_admin:
         return True
-    volume_permission = models.VolumeACLPermission
-    q = model_query(cxt, volume_permission, session=session).\
-        filter(volume_permission.volume_id == vol_id).\
-        filter(volume_permission.access_permission >= access)
-    perms = q.all()
-    user_type_perms = filter(lambda p: p.type == 'user', perms)
-    users = [r.user_or_group_id for r in user_type_perms]
-    if cxt.user_id in users or 'everyone' in users:
+    vol = volume_get(cxt, vol_id)
+    if vol.user_id == cxt.user_id:
         return True
+    perms = _volume_permissions_get_by_volume(cxt, vol_id, session).\
+        filter(access_filter).\
+        all()
+    for p in filter(lambda p: p.type == 'user', perms):
+        if p.user_or_group_id in (cxt.user_id, 'everyone'):
+            return True
     for p in filter(lambda p: p.type == 'group', perms):
         if _check_user_in_group(cxt.user_id, p.user_or_group_id):
             return True
@@ -1311,15 +1314,19 @@ def _volume_permission_has_perm_access(cxt, vol_id, access, session=None):
 
 @require_context
 def volume_permission_has_read_perm_access(cxt, vol_id, session=None):
-    vol = volume_get(cxt, vol_id)
-    if vol.user_id == cxt.user_id:
-        return True
-    return _volume_permission_has_perm_access(cxt, vol_id, 3, session)
+    vol_perm = models.VolumeACLPermission
+    return _volume_permission_has_perm_access(cxt, vol_id,
+                                              vol_perm.access_permission >= 3,
+                                              session)
 
 
 @require_context
 def volume_permission_has_write_perm_access(cxt, vol_id, session=None):
-    return _volume_permission_has_perm_access(cxt, vol_id, 4, session)
+    vol_perm = models.VolumeACLPermission
+    return _volume_permission_has_perm_access(
+        cxt, vol_id,
+        or_(vol_perm.access_permission == 4, vol_perm.access_permission == 7),
+        session)
 
 
 @require_context
