@@ -278,7 +278,7 @@ class VolumeTypeExtraSpecsNotFound(NotFound):
 
 
 class VolumePermissionNotFound(NotFound):
-    message = _("Volume Permission %(volume_permission)s could not be found.")
+    message = _("Volume Permission %(id)s could not be found.")
 
 
 class NoWritePermissionAccess(NotFound):

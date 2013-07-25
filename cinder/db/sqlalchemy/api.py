@@ -75,9 +75,9 @@ admin_tenant_name = config.keystone_admin_tenant_name
 admin_user = config.keystone_admin_user
 admin_password = config.keystone_admin_password
 ks = keystoneclient.v3.client.Client(username=admin_user,
-                                       password=admin_password,
-                                       tenant_name=admin_tenant_name,
-                                       auth_url=auth_uri)
+                                     password=admin_password,
+                                     tenant_name=admin_tenant_name,
+                                     auth_url=auth_uri)
 
 
 def get_backend():
@@ -1204,17 +1204,17 @@ def _volume_permissions_get_by_volume(cxt, volume_id, session=None):
 
 
 @require_context
-def volume_permission_get(context, vol_perm_id, session=None):
-    query = model_query(context, models.VolumeACLPermission, session=session).\
+def volume_permission_get(cxt, vol_perm_id, session=None):
+    query = model_query(cxt, models.VolumeACLPermission, session=session).\
         filter_by(id=vol_perm_id)
+    res = query.first()
 
-    result = query.first()
+    if not res or not volume_permission_has_read_perm_access(cxt,
+                                                             res.volume_id,
+                                                             session):
+        raise exception.VolumePermissionNotFound(id=vol_perm_id)
 
-    if not result:
-        raise exception.VolumePermissionNotFound(volume_permission_id=
-                                                 vol_perm_id)
-
-    return result
+    return res
 
 
 def _translate_volume_permissions(permissions):
@@ -1283,6 +1283,13 @@ def volume_permission_get_by_user(cxt, vol_id, session=None):
     return perm
 
 
+def volume_access_permission(cxt, vol_id, session=None):
+    if cxt.is_admin:
+        return 7
+    vol_perm = volume_permission_get_by_user(cxt, vol_id, session)
+    return vol_perm.access_permission if vol_perm else 0
+
+
 @require_context
 def volume_permission_get_existent(context, volume_id, permission_type,
                                    user_or_group_id, session=None):
@@ -1295,6 +1302,7 @@ def volume_permission_get_existent(context, volume_id, permission_type,
 
 def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
                                        session=None):
+    #import ipdb; ipdb.set_trace()
     if cxt.is_admin:
         return True
     perms = _volume_permissions_get_by_volume(cxt, vol_id, session).\
