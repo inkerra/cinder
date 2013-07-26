@@ -1264,6 +1264,8 @@ def check_user_in_group(user_id, group_id):
 
 
 def check_user_is_admin(cxt, user_id):
+    if user_id == 'everyone':
+        return False
     roles = ks.roles.roles_for_user(user_id, cxt.project_id)
     admin = filter(lambda r: r.name == 'admin', roles)
     return bool(admin)
