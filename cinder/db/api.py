@@ -287,6 +287,16 @@ def volume_permission_delete(context, vol_perm_id):
     return IMPL.volume_permission_delete(context, vol_perm_id)
 
 
+def check_user_in_group(user_id, group_id):
+    """Check User in Group."""
+    return IMPL.check_user_in_group(user_id, group_id)
+
+
+def check_user_is_admin(context, user_id):
+    """Check User is Admin."""
+    return IMPL.check_user_is_admin(context, user_id)
+
+
 def volume_permission_get_by_user(context, volume_id):
     """Get volume permissions for the user."""
     return IMPL.volume_permission_get_by_user(context, volume_id)

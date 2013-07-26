@@ -69,14 +69,19 @@ if 'keystone_authtoken' not in config:
                    secret=True),
     ]
     config.register_opts(extra_opts, group='keystone_authtoken')
-auth_uri = config.keystone_authtoken.auth_uri
+auth_uri = '%s/v2.0/' % config.keystone_authtoken.auth_uri
+auth_uri_v3 = '%s/v3/' % config.keystone_authtoken.auth_uri
 admin_tenant_name = config.keystone_authtoken.admin_tenant_name
 admin_user = config.keystone_authtoken.admin_user
 admin_password = config.keystone_authtoken.admin_password
-ks = keystoneclient.v3.client.Client(username=admin_user,
-                                     password=admin_password,
-                                     tenant_name=admin_tenant_name,
-                                     auth_url=auth_uri)
+ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
+                                        password=admin_password,
+                                        tenant_name=admin_tenant_name,
+                                        auth_url=auth_uri_v3)
+ks = keystoneclient.v2_0.client.Client(username=admin_user,
+                                       password=admin_password,
+                                       tenant_name=admin_tenant_name,
+                                       auth_url=auth_uri)
 
 
 def get_backend():
@@ -1251,6 +1256,19 @@ def volume_permission_get_all_by_volume(cxt, vol_id, session=None):
     return []
 
 
+def check_user_in_group(user_id, group_id):
+    try:
+        return ks_v3.users.check_in_group(user_id, group_id)
+    except Exception:
+        return False
+
+
+def check_user_is_admin(cxt, user_id):
+    roles = ks.roles.roles_for_user(user_id, cxt.project_id)
+    admin = filter(lambda r: r.name == 'admin', roles)
+    return bool(admin)
+
+
 @require_context
 def volume_permission_get_by_user(cxt, vol_id, session=None):
     volume_permission = models.VolumeACLPermission
@@ -1271,7 +1289,7 @@ def volume_permission_get_by_user(cxt, vol_id, session=None):
     perm = None
     group_perms = vol_p_q.filter(volume_permission.type == 'group').all()
     for gp in group_perms:
-        if ks.users.check_in_group(cxt.user_id, gp.user_or_group_id):
+        if check_user_in_group(cxt.user_id, gp.user_or_group_id):
             if not perm or perm.access_permission < gp.access_permission:
                 perm = gp
 
@@ -1307,7 +1325,7 @@ def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
         if p.user_or_group_id in (cxt.user_id, 'everyone'):
             return True
     for p in filter(lambda p: p.type == 'group', perms):
-        if ks.users.check_in_group(cxt.user_id, p.user_or_group_id):
+        if check_user_in_group(cxt.user_id, p.user_or_group_id):
             return True
     return False
 
