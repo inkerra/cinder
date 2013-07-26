@@ -58,22 +58,22 @@ _DEFAULT_QUOTA_NAME = 'default'
 
 config = CONF
 extra_opts = [
-    cfg.StrOpt('keystone-auth-uri',
+    cfg.StrOpt('auth-uri',
                help='Authentication endpoint'),
-    cfg.StrOpt('keystone-admin-tenant-name',
+    cfg.StrOpt('admin-tenant-name',
                help='Administrative user\'s tenant name'),
-    cfg.StrOpt('keystone-admin-user',
+    cfg.StrOpt('admin-user',
                help='Administrative user\'s id'),
-    cfg.StrOpt('keystone-admin-password',
+    cfg.StrOpt('admin-password',
                help='Administrative user\'s password',
                secret=True),
 ]
-config.register_opts(extra_opts)
+config.register_opts(extra_opts, group='keystone_authtoken')
 config(project='cinder', prog='cinder-api')
-auth_uri = config.keystone_auth_uri
-admin_tenant_name = config.keystone_admin_tenant_name
-admin_user = config.keystone_admin_user
-admin_password = config.keystone_admin_password
+auth_uri = config.keystone_authtoken.auth_uri
+admin_tenant_name = config.keystone_authtoken.admin_tenant_name
+admin_user = config.keystone_authtoken.admin_user
+admin_password = config.keystone_authtoken.admin_password
 ks = keystoneclient.v3.client.Client(username=admin_user,
                                      password=admin_password,
                                      tenant_name=admin_tenant_name,

@@ -3,10 +3,6 @@
 ####################
 
 [DEFAULT]
-keystone_auth_uri = %SERVICE_ENDPOINT%
-keystone_admin_tenant_name = %SERVICE_TENANT_NAME%
-keystone_admin_user = %SERVICE_USER%
-keystone_admin_password = %SERVICE_PASSWORD%
 
 #
 # Options defined in cinder.exception
@@ -1462,3 +1458,12 @@ keystone_admin_password = %SERVICE_PASSWORD%
 # gpfs_sparse_volumes=True
 
 # Total option count: 305
+
+[keystone_authtoken]
+auth_host = 127.0.0.1
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = %SERVICE_TENANT_NAME%
+admin_user = %SERVICE_USER%
+admin_password = %SERVICE_PASSWORD%
+auth_uri = %SERVICE_ENDPOINT_V3%
