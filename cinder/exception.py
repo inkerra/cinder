@@ -277,6 +277,18 @@ class VolumeTypeExtraSpecsNotFound(NotFound):
                 "key %(extra_specs_key)s.")
 
 
+class VolumePermissionNotFound(NotFound):
+    message = _("Volume Permission %(id)s could not be found.")
+
+
+class NoWritePermissionAccess(NotFound):
+    message = _("No write permissions access: %(reason)s.")
+
+
+class NoReadPermissionAccess(NotFound):
+    message = _("No read permissions access: %(reason)s.")
+
+
 class SnapshotNotFound(NotFound):
     message = _("Snapshot %(snapshot_id)s could not be found.")
 

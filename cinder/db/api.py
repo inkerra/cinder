@@ -262,6 +262,71 @@ def volume_get_all_by_project(context, project_id, marker, limit, sort_key,
                                           sort_key, sort_dir)
 
 
+def volume_permission_get(context, vol_perm_id):
+    """Get a volume permission record or raise if it does not exist."""
+    return IMPL.volume_permission_get(context, vol_perm_id)
+
+
+def volume_permission_get_all(context):
+    """Get all volume permission records."""
+    return IMPL.volume_permission_get_all(context)
+
+
+def volume_permission_get_all_by_volume(context, vol_id):
+    """Get all volume ACL permissions belonging to a volume."""
+    return IMPL.volume_permission_get_all_by_volume(context, vol_id)
+
+
+def volume_permission_create(context, values):
+    """Create an entry in the volume_permissions table."""
+    return IMPL.volume_permission_create(context, values)
+
+
+def volume_permission_delete(context, vol_perm_id):
+    """Delete a record in the volume_permissions table."""
+    return IMPL.volume_permission_delete(context, vol_perm_id)
+
+
+def check_user_in_group(user_id, group_id):
+    """Check User in Group."""
+    return IMPL.check_user_in_group(user_id, group_id)
+
+
+def check_user_is_admin(context, user_id):
+    """Check User is Admin."""
+    return IMPL.check_user_is_admin(context, user_id)
+
+
+def volume_permission_get_by_user(context, volume_id):
+    """Get volume permissions for the user."""
+    return IMPL.volume_permission_get_by_user(context, volume_id)
+
+
+def volume_access_permission(context, volume_id):
+    """Get volume access permission for the user."""
+    return IMPL.volume_access_permission(context, volume_id)
+
+
+def volume_permission_get_existent(context, volume_id, permission_type,
+                                   user_or_group_id, session=None):
+    """Get existing volume permission."""
+    return IMPL.volume_permission_get_existent(context, volume_id,
+                                               permission_type,
+                                               user_or_group_id, session)
+
+
+def volume_permission_has_write_perm_access(context, volume_id, session=None):
+    """Check if has Write Permissions."""
+    return IMPL.volume_permission_has_write_perm_access(context, volume_id,
+                                                        session)
+
+
+def volume_permission_has_read_perm_access(context, volume_id, session=None):
+    """Check if has Write Permissions."""
+    return IMPL.volume_permission_has_read_perm_access(context, volume_id,
+                                                       session)
+
+
 def volume_get_iscsi_target_num(context, volume_id):
     """Get the target num (tid) allocated to the volume."""
     return IMPL.volume_get_iscsi_target_num(context, volume_id)
