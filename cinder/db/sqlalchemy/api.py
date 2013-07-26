@@ -29,7 +29,6 @@ import keystoneclient.v3.client
 from oslo.config import cfg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
-from sqlalchemy import and_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import literal_column
 from sqlalchemy.sql import func
@@ -57,19 +56,19 @@ get_session = db_session.get_session
 _DEFAULT_QUOTA_NAME = 'default'
 
 config = CONF
-extra_opts = [
-    cfg.StrOpt('auth-uri',
-               help='Authentication endpoint'),
-    cfg.StrOpt('admin-tenant-name',
-               help='Administrative user\'s tenant name'),
-    cfg.StrOpt('admin-user',
-               help='Administrative user\'s id'),
-    cfg.StrOpt('admin-password',
-               help='Administrative user\'s password',
-               secret=True),
-]
-config.register_opts(extra_opts, group='keystone_authtoken')
-config(project='cinder', prog='cinder-api')
+if 'keystone_authtoken' not in config:
+    extra_opts = [
+        cfg.StrOpt('auth-uri',
+                   help='Authentication endpoint'),
+        cfg.StrOpt('admin-tenant-name',
+                   help='Administrative user\'s tenant name'),
+        cfg.StrOpt('admin-user',
+                   help='Administrative user\'s id'),
+        cfg.StrOpt('admin-password',
+                   help='Administrative user\'s password',
+                   secret=True),
+    ]
+    config.register_opts(extra_opts, group='keystone_authtoken')
 auth_uri = config.keystone_authtoken.auth_uri
 admin_tenant_name = config.keystone_authtoken.admin_tenant_name
 admin_user = config.keystone_authtoken.admin_user
@@ -1252,10 +1251,6 @@ def volume_permission_get_all_by_volume(cxt, vol_id, session=None):
     return []
 
 
-def _check_user_in_group(user_id, group_id):
-    return ks.groups.check_user_in_group(user_id, group_id)
-
-
 @require_context
 def volume_permission_get_by_user(cxt, vol_id, session=None):
     volume_permission = models.VolumeACLPermission
@@ -1276,7 +1271,7 @@ def volume_permission_get_by_user(cxt, vol_id, session=None):
     perm = None
     group_perms = vol_p_q.filter(volume_permission.type == 'group').all()
     for gp in group_perms:
-        if _check_user_in_group(cxt.user_id, gp.user_or_group_id):
+        if ks.users.check_in_group(cxt.user_id, gp.user_or_group_id):
             if not perm or perm.access_permission < gp.access_permission:
                 perm = gp
 
@@ -1312,7 +1307,7 @@ def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
         if p.user_or_group_id in (cxt.user_id, 'everyone'):
             return True
     for p in filter(lambda p: p.type == 'group', perms):
-        if _check_user_in_group(cxt.user_id, p.user_or_group_id):
+        if ks.users.check_in_group(cxt.user_id, p.user_or_group_id):
             return True
     return False
 
