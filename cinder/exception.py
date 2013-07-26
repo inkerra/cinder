@@ -594,7 +594,3 @@ class SwiftConnectionFailed(CinderException):
 
 class TransferNotFound(NotFound):
     message = _("Transfer %(transfer_id)s could not be found.")
-
-
-class AttachedVolumeChangePermissions(Invalid):
-    message = _("Can't change permissions for a not detached volume.")

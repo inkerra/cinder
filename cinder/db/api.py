@@ -272,9 +272,9 @@ def volume_permission_get_all(context):
     return IMPL.volume_permission_get_all(context)
 
 
-def volume_permission_get_all_by_volume(context, vol_id, session=None):
+def volume_permission_get_all_by_volume(context, vol_id):
     """Get all volume ACL permissions belonging to a volume."""
-    return IMPL.volume_permission_get_all_by_volume(context, vol_id, session)
+    return IMPL.volume_permission_get_all_by_volume(context, vol_id)
 
 
 def volume_permission_create(context, values):

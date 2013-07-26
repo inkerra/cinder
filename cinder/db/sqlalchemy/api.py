@@ -25,7 +25,7 @@ import sys
 import uuid
 import warnings
 
-import keystoneclient.v3.client
+import keystoneclient.v3
 from oslo.config import cfg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
@@ -1213,10 +1213,12 @@ def volume_permission_get(cxt, vol_perm_id, session=None):
         filter_by(id=vol_perm_id)
     res = query.first()
 
-    if not res or not volume_permission_has_read_perm_access(cxt,
-                                                             res.volume_id,
-                                                             session):
+    if not res:
         raise exception.VolumePermissionNotFound(id=vol_perm_id)
+    if not volume_permission_has_read_perm_access(cxt, res.volume_id,
+                                                  session):
+        r = _('wrong access permission level')
+        raise exception.NoReadPermissionAccess(reason=r)
 
     return res
 
@@ -1235,7 +1237,7 @@ def _translate_volume_permissions(permissions):
 
 
 @require_context
-def volume_permission_get_all(cxt, session=None):
+def volume_permission_get_all(cxt):
     if cxt.is_admin:
         results = model_query(cxt, models.VolumeACLPermission).all()
     else:
@@ -1243,16 +1245,19 @@ def volume_permission_get_all(cxt, session=None):
         all_volumes = _volume_get_query(cxt).\
             filter_by(project_id=cxt.project_id).all()
         for vol in all_volumes:
-            results.extend(volume_permission_get_all_by_volume(cxt, vol['id'],
-                                                               session))
+            results.extend(volume_permission_get_all_by_volume(cxt, vol['id']))
 
     return _translate_volume_permissions(results)
 
 
 @require_context
-def volume_permission_get_all_by_volume(cxt, vol_id, session=None):
-    if volume_permission_has_read_perm_access(cxt, vol_id, session=session):
-        return _volume_permissions_get_by_volume(cxt, vol_id, session).all()
+def volume_permission_get_all_by_volume(cxt, vol_id):
+    session = get_session()
+    with session.begin():
+        if volume_permission_has_read_perm_access(cxt, vol_id,
+                                                  session=session):
+            res = _volume_permissions_get_by_volume(cxt, vol_id, session).all()
+            return res
     return []
 
 
