@@ -27,7 +27,6 @@ from cinder.openstack.common import uuidutils
 from cinder import utils
 from cinder import volume
 from cinder.volume import volume_types
-from cinder import db
 
 
 LOG = logging.getLogger(__name__)
@@ -89,7 +88,6 @@ def _translate_volume_summary_view(context, vol, image_id=None):
 
     d['display_name'] = vol['display_name']
     d['display_description'] = vol['display_description']
-    d['access_permission'] = db.volume_access_permission(context, vol['id'])
 
     if vol['volume_type_id'] and vol.get('volume_type'):
         d['volume_type'] = vol['volume_type']['name']

@@ -69,19 +69,20 @@ if 'keystone_authtoken' not in config:
                    secret=True),
     ]
     config.register_opts(extra_opts, group='keystone_authtoken')
-auth_uri = '%s/v2.0/' % config.keystone_authtoken.auth_uri
-auth_uri_v3 = '%s/v3/' % config.keystone_authtoken.auth_uri
-admin_tenant_name = config.keystone_authtoken.admin_tenant_name
-admin_user = config.keystone_authtoken.admin_user
-admin_password = config.keystone_authtoken.admin_password
-ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
-                                        password=admin_password,
-                                        tenant_name=admin_tenant_name,
-                                        auth_url=auth_uri_v3)
-ks = keystoneclient.v2_0.client.Client(username=admin_user,
-                                       password=admin_password,
-                                       tenant_name=admin_tenant_name,
-                                       auth_url=auth_uri)
+if config.keystone_authtoken.get('auth_uri'):
+    auth_uri = '%s/v2.0/' % config.keystone_authtoken.auth_uri
+    auth_uri_v3 = '%s/v3/' % config.keystone_authtoken.auth_uri
+    admin_tenant_name = config.keystone_authtoken.admin_tenant_name
+    admin_user = config.keystone_authtoken.admin_user
+    admin_password = config.keystone_authtoken.admin_password
+    ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
+                                            password=admin_password,
+                                            tenant_name=admin_tenant_name,
+                                            auth_url=auth_uri_v3)
+    ks = keystoneclient.v2_0.client.Client(username=admin_user,
+                                           password=admin_password,
+                                           tenant_name=admin_tenant_name,
+                                           auth_url=auth_uri)
 
 
 def get_backend():
@@ -1126,8 +1127,7 @@ def _volume_get_query(context, session=None, project_only=False):
     return model_query(context, models.Volume, session=session,
                        project_only=project_only).\
         options(joinedload('volume_metadata')).\
-        options(joinedload('volume_type')).\
-        options(joinedload('volume_acl_permissions'))
+        options(joinedload('volume_type'))
 
 
 @require_context

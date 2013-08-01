@@ -24,4 +24,5 @@ import cinder.openstack.common.importutils
 
 CONF = cfg.CONF
 
-API = cinder.openstack.common.importutils.import_class(CONF.volume_acl_api_class)
+API = \
+    cinder.openstack.common.importutils.import_class(CONF.volume_acl_api_class)

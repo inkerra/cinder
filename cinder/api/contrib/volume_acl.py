@@ -116,8 +116,9 @@ class VolumeACLController(wsgi.Controller):
         return self._get_volume_permissions(req, is_detail=True)
 
     def _get_volume_permissions(self, req, is_detail):
-        """Returns a list of volume_permissions, transformed through
-        view builder."""
+        """
+        Returns a list of volume_permissions, transformed through view builder.
+        """
         context = req.environ['cinder.context']
         LOG.debug(_('Listing volume permissions'))
         volume_permissions = self.volume_acl_api.get_all(context)

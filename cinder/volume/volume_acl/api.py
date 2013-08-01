@@ -19,9 +19,9 @@ Handles all requests relating to Volume ACL.
 
 
 from cinder.db import base
+from cinder import exception
 from cinder.openstack.common import log as logging
 from cinder.volume import api as volume_api
-from cinder import exception
 
 
 LOG = logging.getLogger(__name__)
@@ -51,7 +51,6 @@ class API(base.Base):
                 raise exception.NoWritePermissionAccess(reason=r)
 
         return self.db.volume_permission_has_write_perm_access(cxt, vol_id)
-
 
     def delete(self, cxt, id):
         """
