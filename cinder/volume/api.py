@@ -462,9 +462,11 @@ class API(base.Base):
         return dict(rv.iteritems())
 
     def get_volume_permission(self, context, volume_id):
+        #TODO(aguzikova): test case is needed for this method.
         return self.db.volume_permission_get_by_user(context, volume_id)
 
     def get_all_volume_permissions(self, context, volume_id):
+        #TODO(aguzikova): test case is needed for this method.
         return self.db.volume_permission_get_all_by_volume(context, volume_id)
 
     def get_all_snapshots(self, context, search_opts=None):

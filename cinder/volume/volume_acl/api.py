@@ -35,6 +35,7 @@ class API(base.Base):
         super(API, self).__init__(db_driver)
 
     def get(self, cxt, volume_permission_id):
+        #TODO(aguzikova): test case is needed for this method.
         rv = self.db.volume_permission_get(cxt, volume_permission_id)
         return dict(rv.iteritems())
 
@@ -53,6 +54,7 @@ class API(base.Base):
         return self.db.volume_permission_has_write_perm_access(cxt, vol_id)
 
     def delete(self, cxt, id):
+        #TODO(aguzikova): test case is needed for this method.
         """
         Deletes a volume permission in the volume_permissions table.
         """
@@ -65,10 +67,16 @@ class API(base.Base):
         self.db.volume_permission_delete(cxt, id)
 
     def get_all(self, cxt, filters={}):
+        #TODO(aguzikova): test case is needed for this method.
         return self.db.volume_permission_get_all(cxt)
+
+    def get_all_by_volume(self, cxt, volume_id):
+        #TODO(aguzikova): test case is needed for this method.
+        return self.db.volume_permission_get_all_by_volume(cxt, volume_id)
 
     def create(self, cxt, vol_id, perm_type, user_or_group_id,
                access_permission=7):
+        #TODO(aguzikova): test case is needed for this method.
         """Creates an entry in the volume_acl_permissions table."""
 
         write_perm_access = self._get_write_perm_access(cxt, vol_id, perm_type,

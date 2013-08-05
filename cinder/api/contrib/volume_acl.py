@@ -120,8 +120,15 @@ class VolumeACLController(wsgi.Controller):
         Returns a list of volume_permissions, transformed through view builder.
         """
         context = req.environ['cinder.context']
-        LOG.debug(_('Listing volume permissions'))
-        volume_permissions = self.volume_acl_api.get_all(context)
+        if 'volume_id' in req.params:
+            volume_id = req.params['volume_id']
+            LOG.debug(_('Listing volume permissions for volume: %s'),
+                      volume_id)
+            volume_permissions = \
+                self.volume_acl_api.get_all_by_volume(context, volume_id)
+        else:
+            LOG.debug(_('Listing volume permissions'))
+            volume_permissions = self.volume_acl_api.get_all(context)
         limited_list = common.limited(volume_permissions, req)
 
         if is_detail:
