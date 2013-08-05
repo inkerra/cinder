@@ -1577,4 +1577,17 @@
 #volume_dd_blocksize=1M
 
 
-# Total option count: 337
+#
+# Options defined in cinder.volume.volume_acl.identity
+#
+#
+[keystone_authtoken]
+auth_host = 127.0.0.1
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = %SERVICE_TENANT_NAME%
+admin_user = %SERVICE_USER%
+admin_password = %SERVICE_PASSWORD%
+auth_uri = %SERVICE_ENDPOINT%
+
+# Total option count: 344

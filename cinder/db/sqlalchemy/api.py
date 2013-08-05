@@ -28,6 +28,7 @@ import warnings
 from oslo.config import cfg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
+from sqlalchemy.orm import exc as orm_exc
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import literal_column
 from sqlalchemy.sql import func
@@ -1130,6 +1131,11 @@ def volume_destroy(context, volume_id):
             update({'deleted': True,
                     'deleted_at': timeutils.utcnow(),
                     'updated_at': literal_column('updated_at')})
+        session.query(models.VolumeACLPermission).\
+            filter_by(volume_id=volume_id).\
+            update({'deleted': True,
+                    'deleted_at': timeutils.utcnow(),
+                    'updated_at': literal_column('updated_at')})
 
 
 @require_admin_context
@@ -1164,6 +1170,19 @@ def _volume_get(context, volume_id, session=None):
         raise exception.VolumeNotFound(volume_id=volume_id)
 
     return result
+
+
+@require_context
+def volume_find(cxt, id_or_name):
+    try:
+        return _volume_get_query(cxt).\
+            filter(
+                or_(models.Volume.id == id_or_name,
+                    models.Volume.display_name == id_or_name)).one()
+    except orm_exc.MultipleResultsFound:
+        raise exception.MultipleVolumesFound(volume_id=id_or_name)
+    except orm_exc.NoResultFound:
+        raise exception.VolumeNotFound(volume_id=id_or_name)
 
 
 @require_context
@@ -1227,6 +1246,88 @@ def volume_get_all_by_project(context, project_id, marker, limit, sort_key,
                                                sort_dir=sort_dir)
 
         return query.all()
+
+
+def _volume_permissions_get_by_volume(cxt, volume_id, session=None):
+    return model_query(cxt, models.VolumeACLPermission, session=session).\
+        filter_by(volume_id=volume_id)
+
+
+@require_context
+def _volume_permission_get(cxt, vol_perm_id, session=None):
+    result = model_query(cxt, models.VolumeACLPermission, session=session).\
+        filter_by(id=vol_perm_id).\
+        first()
+
+    if not result:
+        raise exception.VolumePermissionNotFound(id=vol_perm_id)
+
+    return result
+
+
+@require_context
+def volume_permission_get_all(cxt, marker, limit, sort_key, sort_dir):
+    session = get_session()
+    with session.begin():
+        query = model_query(cxt, models.VolumeACLPermission, session=session)
+
+        marker_perm = None
+        if marker is not None:
+            marker_perm = _volume_permission_get(cxt, marker, session=session)
+
+        query = sqlalchemyutils.paginate_query(query,
+                                               models.VolumeACLPermission,
+                                               limit,
+                                               [sort_key, 'created_at', 'id'],
+                                               marker=marker_perm,
+                                               sort_dir=sort_dir)
+
+        return query.all()
+
+
+@require_context
+def volume_permission_get_all_by_volume(cxt, volume_id):
+    return _volume_permissions_get_by_volume(cxt, volume_id).all()
+
+
+@require_context
+def volume_permission_find(context, volume_id, user_or_group_id,
+                           permission_type='user'):
+    query = _volume_permissions_get_by_volume(context, volume_id).\
+        filter_by(type=permission_type).\
+        filter_by(user_or_group_id=user_or_group_id)
+    return query.first()
+
+
+@require_context
+def volume_permission_get(cxt, id):
+    query = model_query(cxt, models.VolumeACLPermission).filter_by(id=id)
+    return query.first()
+
+
+@require_context
+def volume_permission_create(context, values):
+    session = get_session()
+    with session.begin():
+        if values.get('id'):
+            volume_permission = _volume_permission_get(context,
+                                                       values.get('id'),
+                                                       session=session)
+        else:
+            volume_permission = models.VolumeACLPermission()
+        volume_permission.update(values)
+        volume_permission.save(session=session)
+    return volume_permission
+
+
+def volume_permission_delete(cxt, vol_perm_id):
+    session = get_session()
+    with session.begin():
+        model_query(cxt, models.VolumeACLPermission).\
+            filter_by(id=vol_perm_id).\
+            update({'deleted': True,
+                    'deleted_at': timeutils.utcnow(),
+                    'updated_at': literal_column('updated_at')})
 
 
 @require_admin_context

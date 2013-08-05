@@ -144,6 +144,22 @@ class VolumeMetadata(BASE, CinderBase):
                           'VolumeMetadata.deleted == False)')
 
 
+class VolumeACLPermission(BASE, CinderBase):
+    """Represents ACL for a volume."""
+    __tablename__ = 'volume_acl_permissions'
+    id = Column(Integer, primary_key=True)
+    volume_id = Column(String(36), ForeignKey('volumes.id'), nullable=False)
+    type = Column(String(10), nullable=False)
+    user_or_group_id = Column(String(255), nullable=False)
+    access_permission = Column(Integer, nullable=False, default=7)
+    permission_list_access = Column(Integer, nullable=False, default=0)
+    volume = relationship(Volume, backref="volume_acl_permissions",
+                          foreign_keys=volume_id,
+                          primaryjoin='and_('
+                          'VolumeACLPermission.volume_id == Volume.id,'
+                          'VolumeACLPermission.deleted == False)')
+
+
 class VolumeTypes(BASE, CinderBase):
     """Represent possible volume_types of volumes offered."""
     __tablename__ = "volume_types"
@@ -416,6 +432,7 @@ def register_models():
               Service,
               Volume,
               VolumeMetadata,
+              VolumeACLPermission,
               SnapshotMetadata,
               Transfer,
               VolumeTypeExtraSpecs,
