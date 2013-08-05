@@ -25,6 +25,8 @@ import sys
 import uuid
 import warnings
 
+import keystoneclient.v2_0
+import keystoneclient.v3
 from oslo.config import cfg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
@@ -53,6 +55,36 @@ get_engine = db_session.get_engine
 get_session = db_session.get_session
 
 _DEFAULT_QUOTA_NAME = 'default'
+
+config = CONF
+if 'keystone_authtoken' not in config:
+    extra_opts = [
+        cfg.StrOpt('auth-uri',
+                   help='Authentication endpoint'),
+        cfg.StrOpt('admin-tenant-name',
+                   help='Administrative user\'s tenant name'),
+        cfg.StrOpt('admin-user',
+                   help='Administrative user\'s id'),
+        cfg.StrOpt('admin-password',
+                   help='Administrative user\'s password',
+                   secret=True),
+    ]
+    config.register_opts(extra_opts, group='keystone_authtoken')
+if config.keystone_authtoken.get('auth_uri'):
+    auth_uri = '%s/v2.0/' % config.keystone_authtoken.auth_uri
+    auth_uri_v3 = '%s/v3/' % config.keystone_authtoken.auth_uri
+    admin_tenant_name = config.keystone_authtoken.admin_tenant_name
+    admin_user = config.keystone_authtoken.admin_user
+    admin_password = config.keystone_authtoken.admin_password
+
+    #ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
+    #                                        password=admin_password,
+    #                                        tenant_name=admin_tenant_name,
+    #                                        auth_url=auth_uri_v3)
+    #ks = keystoneclient.v2_0.client.Client(username=admin_user,
+    #                                       password=admin_password,
+    #                                       tenant_name=admin_tenant_name,
+    #                                       auth_url=auth_uri)
 
 
 def get_backend():
@@ -1006,7 +1038,12 @@ def volume_create(context, values):
     with session.begin():
         volume_ref.save(session=session)
 
-        return _volume_get(context, values['id'], session=session)
+    volume_permission_create(context, {'volume_id': values['id'],
+                                       'type': 'user',
+                                       'user_or_group_id': context.user_id,
+                                       'access_permission': 7
+                                       })
+    return _volume_get(context, values['id'])
 
 
 @require_admin_context
@@ -1081,6 +1118,11 @@ def volume_destroy(context, volume_id):
             filter_by(volume_id=volume_id).\
             update({'volume_id': None})
         session.query(models.VolumeMetadata).\
+            filter_by(volume_id=volume_id).\
+            update({'deleted': True,
+                    'deleted_at': timeutils.utcnow(),
+                    'updated_at': literal_column('updated_at')})
+        session.query(models.VolumeACLPermission).\
             filter_by(volume_id=volume_id).\
             update({'deleted': True,
                     'deleted_at': timeutils.utcnow(),
@@ -1182,6 +1224,223 @@ def volume_get_all_by_project(context, project_id, marker, limit, sort_key,
                                                sort_dir=sort_dir)
 
         return query.all()
+
+
+def _volume_permissions_get_by_volume(cxt, volume_id, session=None):
+    volume_permission = models.VolumeACLPermission
+    q = model_query(cxt, volume_permission, session=session).\
+        filter(volume_permission.volume_id == volume_id)
+    return q
+
+
+@require_context
+def volume_permission_get(cxt, vol_perm_id, session=None):
+    query = model_query(cxt, models.VolumeACLPermission, session=session).\
+        filter_by(id=vol_perm_id)
+    perm = query.first()
+
+    if not perm:
+        raise exception.VolumePermissionNotFound(id=vol_perm_id)
+    has_access = volume_permission_has_read_perm_access(cxt, perm.volume_id,
+                                                        session)
+    actual_perm = volume_permission_get_by_user(cxt, perm.volume_id)
+    if not has_access and \
+       not (actual_perm and perm.id == actual_perm.id):
+        r = _('wrong access permission level')
+        raise exception.NoReadPermissionAccess(reason=r)
+
+    return perm
+
+
+def _translate_volume_permission(permission):
+    r = {}
+    r['id'] = permission['id']
+    r['volume_id'] = permission['volume_id']
+    r['type'] = permission['type']
+    r['user_or_group_id'] = permission['user_or_group_id']
+    r['access_permission'] = permission['access_permission']
+    return r
+
+
+def volume_permission_detail(permission):
+    r = _translate_volume_permission(permission)
+    r['deleted'] = permission['deleted']
+    r['deleted_at'] = permission['deleted_at']
+    r['created_at'] = permission['created_at']
+    r['updated_at'] = permission['updated_at']
+    return r
+
+
+def _translate_volume_permissions(permissions):
+    return map(_translate_volume_permission, permissions)
+
+
+@require_context
+def volume_permission_get_all(cxt):
+    if cxt.is_admin:
+        results = model_query(cxt, models.VolumeACLPermission).all()
+    else:
+        results = []
+        all_volumes = _volume_get_query(cxt).\
+            filter_by(project_id=cxt.project_id).all()
+        for vol in all_volumes:
+            results.extend(volume_permission_get_all_by_volume(cxt, vol['id']))
+
+    return _translate_volume_permissions(results)
+
+
+@require_context
+def volume_permission_get_all_by_volume(cxt, vol_id):
+    res = []
+    session = get_session()
+    with session.begin():
+        if volume_permission_has_read_perm_access(cxt, vol_id,
+                                                  session=session):
+            res = _volume_permissions_get_by_volume(cxt, vol_id, session).all()
+        else:
+            perm = volume_permission_get_by_user(cxt, vol_id)
+            if perm:
+                res.append(perm)
+    return res
+
+
+def check_user_in_group(user_id, group_id):
+    try:
+        ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
+                                                password=admin_password,
+                                                tenant_name=admin_tenant_name,
+                                                auth_url=auth_uri_v3)
+        return ks_v3.users.check_in_group(user_id, group_id)
+    except Exception:
+        return False
+
+
+def check_user_is_admin(cxt, user_id):
+    if user_id == 'everyone':
+        return False
+    try:
+        ks = keystoneclient.v2_0.client.Client(username=admin_user,
+                                               password=admin_password,
+                                               tenant_name=admin_tenant_name,
+                                               auth_url=auth_uri)
+    except Exception:
+        return False
+    roles = ks.roles.roles_for_user(user_id, cxt.project_id)
+    admin = filter(lambda r: r.name == 'admin', roles)
+    return bool(admin)
+
+
+@require_context
+def volume_permission_get_by_user(cxt, vol_id, session=None):
+    volume_permission = models.VolumeACLPermission
+
+    vol_p_q = _volume_permissions_get_by_volume(cxt, vol_id, session)
+    user_p_q = vol_p_q.filter(volume_permission.type == 'user')
+
+    user_p = user_p_q.filter(volume_permission.user_or_group_id ==
+                             cxt.user_id).first()
+    if user_p:
+        return user_p
+
+    everyone_p = user_p_q.filter(volume_permission.user_or_group_id ==
+                                 'everyone').first()
+    if everyone_p:
+        return everyone_p
+
+    perm = None
+    group_perms = vol_p_q.filter(volume_permission.type == 'group').all()
+    for gp in group_perms:
+        if check_user_in_group(cxt.user_id, gp.user_or_group_id):
+            if not perm or perm.access_permission < gp.access_permission:
+                perm = gp
+
+    return perm
+
+
+def volume_access_permission(cxt, vol_id, session=None):
+    if cxt.is_admin:
+        return 7
+    vol_perm = volume_permission_get_by_user(cxt, vol_id, session)
+    return vol_perm.access_permission if vol_perm else 0
+
+
+@require_context
+def volume_permission_get_existent(context, volume_id, user_or_group_id,
+                                   permission_type='user', session=None):
+    volume_permission = models.VolumeACLPermission
+    query = _volume_permissions_get_by_volume(context, volume_id, session).\
+        filter(volume_permission.type == permission_type).\
+        filter(volume_permission.user_or_group_id == user_or_group_id)
+    return query.first()
+
+
+def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
+                                       session=None):
+    #import ipdb; ipdb.set_trace()
+    if cxt.is_admin:
+        return True
+    perms = _volume_permissions_get_by_volume(cxt, vol_id, session).\
+        filter(access_filter).\
+        all()
+    for p in filter(lambda p: p.type == 'user', perms):
+        if p.user_or_group_id in (cxt.user_id, 'everyone'):
+            return True
+    for p in filter(lambda p: p.type == 'group', perms):
+        if check_user_in_group(cxt.user_id, p.user_or_group_id):
+            return True
+    return False
+
+
+@require_context
+def volume_permission_has_read_perm_access(cxt, vol_id, session=None):
+    vol_perm = models.VolumeACLPermission
+    return _volume_permission_has_perm_access(cxt, vol_id,
+                                              vol_perm.access_permission >= 3,
+                                              session)
+
+
+@require_context
+def volume_permission_has_write_perm_access(cxt, vol_id, session=None):
+    vol_perm = models.VolumeACLPermission
+    return _volume_permission_has_perm_access(
+        cxt, vol_id,
+        or_(vol_perm.access_permission == 4, vol_perm.access_permission == 7),
+        session)
+
+
+@require_context
+def volume_permission_create(context, values):
+    session = get_session()
+    if not values.get('id'):
+        vol_perm = \
+            volume_permission_get_existent(context, values['volume_id'],
+                                           values['user_or_group_id'],
+                                           values['type'],
+                                           session=session)
+        if vol_perm:
+            values['id'] = vol_perm['id']
+            volume_permission = vol_perm
+
+    if not values.get('id'):
+        volume_permission = models.VolumeACLPermission()
+    with session.begin():
+        volume_permission.update(values)
+        volume_permission.save(session=session)
+    return volume_permission
+
+
+def volume_permission_delete(cxt, vol_perm_id):
+    session = get_session()
+    with session.begin():
+        vol_id = volume_permission_get(cxt, vol_perm_id).volume_id
+        has_access = volume_permission_has_write_perm_access(cxt, vol_id,
+                                                             session)
+        if has_access:
+            session.query(models.VolumeACLPermission).\
+                filter_by(id=vol_perm_id).\
+                update({'deleted': True,
+                        'deleted_at': timeutils.utcnow(),
+                        'updated_at': literal_column('updated_at')})
 
 
 @require_admin_context
