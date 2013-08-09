@@ -39,15 +39,16 @@ class API(base.Base):
         return dict(rv.iteritems())
 
     def _get_write_perm_access(self, cxt, vol_id, perm_type, user_or_group_id):
+        if perm_type == 'user' \
+           and self.db.check_user_is_admin(cxt, user_or_group_id):
+            r = _("Admin's permissions can't be modified")
+            raise exception.NoWritePermissionAccess(reason=r)
         if cxt.is_admin:
             return True
         vol = self.db.volume_get(cxt, vol_id)
         if perm_type == 'user':
             if user_or_group_id == vol.user_id:
                 r = _("owner's permissions can be changed by admins only")
-                raise exception.NoWritePermissionAccess(reason=r)
-            if self.db.check_user_is_admin(cxt, user_or_group_id):
-                r = _("Admin's permissions can't be modified")
                 raise exception.NoWritePermissionAccess(reason=r)
 
         return self.db.volume_permission_has_write_perm_access(cxt, vol_id)
