@@ -217,6 +217,11 @@ def volume_get(context, volume_id):
     return IMPL.volume_get(context, volume_id)
 
 
+def volume_find(context, id_or_name, session=None):
+    """Get a volume or raise if it does not exist."""
+    return IMPL.volume_find(context, id_or_name, session)
+
+
 def volume_get_all(context, marker, limit, sort_key, sort_dir):
     """Get all volumes."""
     return IMPL.volume_get_all(context, marker, limit, sort_key, sort_dir)
@@ -274,9 +279,12 @@ def check_user_in_group(user_id, group_id):
     return IMPL.check_user_in_group(user_id, group_id)
 
 
-def check_user_is_admin(context, user_id):
-    """Check User is Admin."""
-    return IMPL.check_user_is_admin(context, user_id)
+#def check_user_is_admin(context, user_id):
+#    """Check User is Admin."""
+#    return IMPL.check_user_is_admin(context, user_id)
+def volume_permission_validate_subject(context, perm_type, subject):
+    """Validate volume permission subject."""
+    return IMPL.volume_permission_validate_subject(context, perm_type, subject)
 
 
 def volume_permission_get_by_user(context, volume_id):

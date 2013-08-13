@@ -39,10 +39,10 @@ class API(base.Base):
         return dict(rv.iteritems())
 
     def _get_write_perm_access(self, cxt, vol_id, perm_type, user_or_group_id):
-        if perm_type == 'user' \
-           and self.db.check_user_is_admin(cxt, user_or_group_id):
-            r = _("Admin's permissions can't be modified")
-            raise exc.NoWritePermissionAccess(reason=r)
+        #if perm_type == 'user' \
+        #   and self.db.check_user_is_admin(cxt, user_or_group_id):
+        #    r = _("Admin's permissions can't be modified")
+        #    raise exc.NoWritePermissionAccess(reason=r)
         vol = self.db.volume_get(cxt, vol_id)
         if cxt.is_admin or cxt.user_id == vol.user_id:
             return True
@@ -70,15 +70,18 @@ class API(base.Base):
     def get_all_by_volume(self, cxt, volume_id):
         return self.db.volume_permission_get_all_by_volume(cxt, volume_id)
 
-    def create(self, cxt, vol_id, user_or_group_id, perm_type='user',
+    def create(self, cxt, vol, user_or_group_id, perm_type='user',
                access_permission=7):
         """Creates an entry in the volume_acl_permissions table."""
+
+        vol_id = self.db.volume_find(cxt, vol).id
 
         if perm_type == 'user' and not user_or_group_id:
             user_or_group_id = cxt.user_id
 
-        if not user_or_group_id:
-            raise exc.VolumePermissionSubjectNotFound(id=user_or_group_id)
+        user_or_group_id = \
+            self.db.volume_permission_validate_subject(cxt, perm_type,
+                                                       user_or_group_id)
 
         write_perm_access = self._get_write_perm_access(cxt, vol_id, perm_type,
                                                         user_or_group_id)

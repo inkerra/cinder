@@ -1164,6 +1164,21 @@ def _volume_get(context, volume_id, session=None):
 
 
 @require_context
+def volume_find(context, id_or_name, session=None):
+    try:
+        result = volume_get(context, id_or_name)
+        return result
+    except exception.VolumeNotFound:
+        pass
+    result = _volume_get_query(context, session=session).\
+        filter_by(display_name=id_or_name).all()
+
+    if len(result) == 1:
+        return result[0]
+    raise exception.VolumeNotFound(volume_id=id_or_name)
+
+
+@require_context
 def volume_get(context, volume_id):
     return _volume_get(context, volume_id)
 
@@ -1290,10 +1305,11 @@ def volume_permission_get_all(cxt):
 
 
 @require_context
-def volume_permission_get_all_by_volume(cxt, vol_id):
+def volume_permission_get_all_by_volume(cxt, vol):
     res = []
     session = get_session()
     with session.begin():
+        vol_id = volume_find(cxt, vol, session=session).id
         if volume_permission_has_read_perm_access(cxt, vol_id,
                                                   session=session):
             res = _volume_permissions_get_by_volume(cxt, vol_id, session).all()
@@ -1315,19 +1331,45 @@ def check_user_in_group(user_id, group_id):
         return False
 
 
-def check_user_is_admin(cxt, user_id):
-    if user_id == 'everyone':
-        return False
+#def check_user_is_admin(cxt, user_id):
+#    if user_id == 'everyone':
+#        return False
+#    try:
+#        ks = keystoneclient.v2_0.client.Client(username=admin_user,
+#                                                password=admin_password,
+#                                                tenant_name=admin_tenant_name,
+#                                                auth_url=auth_uri)
+#    except Exception:
+#        return False
+#    roles = ks.roles.roles_for_user(user_id, cxt.project_id)
+#    admin = filter(lambda r: r.name == 'admin', roles)
+#    return bool(admin)
+
+
+def volume_permission_validate_subject(ctx, perm_type, subject):
+    if subject == 'everyone' or \
+       (perm_type == 'user' and ctx.user_id == subject):
+        return subject
     try:
-        ks = keystoneclient.v2_0.client.Client(username=admin_user,
-                                               password=admin_password,
-                                               tenant_name=admin_tenant_name,
-                                               auth_url=auth_uri)
+        ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
+                                                password=admin_password,
+                                                tenant_name=admin_tenant_name,
+                                                auth_url=auth_uri_v3)
     except Exception:
-        return False
-    roles = ks.roles.roles_for_user(user_id, cxt.project_id)
-    admin = filter(lambda r: r.name == 'admin', roles)
-    return bool(admin)
+        return subject
+
+    if perm_type == 'user':
+        found = filter(lambda u: u.name == subject, ks_v3.users.list())
+        if len(found) == 1:
+            return found[0].id
+        found = ks_v3.users.get(subject)
+        if found:
+            return found.id
+    if perm_type == 'group':
+        found = ks_v3.groups.get(subject)
+        if found:
+            return found.id
+    raise exception.VolumePermissionSubjectNotFound(id=subject)
 
 
 @require_context
