@@ -285,6 +285,10 @@ class VolumePermissionNotFound(NotFound):
     message = _("Volume Permission %(id)s could not be found.")
 
 
+class VolumePermissionSubjectNotFound(NotFound):
+    message = _("Volume Permission Subject %(id)s could not be found.")
+
+
 class WrongAccessPermissionLevel(NotFound):
     pass
 

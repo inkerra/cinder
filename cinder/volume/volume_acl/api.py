@@ -19,7 +19,7 @@ Handles all requests relating to Volume ACL.
 
 
 from cinder.db import base
-from cinder import exception
+from cinder import exception as exc
 from cinder.openstack.common import log as logging
 from cinder.volume import api as volume_api
 
@@ -42,14 +42,13 @@ class API(base.Base):
         if perm_type == 'user' \
            and self.db.check_user_is_admin(cxt, user_or_group_id):
             r = _("Admin's permissions can't be modified")
-            raise exception.NoWritePermissionAccess(reason=r)
-        if cxt.is_admin:
-            return True
+            raise exc.NoWritePermissionAccess(reason=r)
         vol = self.db.volume_get(cxt, vol_id)
-        if perm_type == 'user':
-            if user_or_group_id == vol.user_id:
-                r = _("owner's permissions can be changed by admins only")
-                raise exception.NoWritePermissionAccess(reason=r)
+        if cxt.is_admin or cxt.user_id == vol.user_id:
+            return True
+        if perm_type == 'user' and user_or_group_id == vol.user_id:
+            r = _("owner's permissions can be changed by admins only")
+            raise exc.NoWritePermissionAccess(reason=r)
 
         return self.db.volume_permission_has_write_perm_access(cxt, vol_id)
 
@@ -74,6 +73,12 @@ class API(base.Base):
     def create(self, cxt, vol_id, user_or_group_id, perm_type='user',
                access_permission=7):
         """Creates an entry in the volume_acl_permissions table."""
+
+        if perm_type == 'user' and not user_or_group_id:
+            user_or_group_id = cxt.user_id
+
+        if not user_or_group_id:
+            raise exc.VolumePermissionSubjectNotFound(id=user_or_group_id)
 
         write_perm_access = self._get_write_perm_access(cxt, vol_id, perm_type,
                                                         user_or_group_id)
