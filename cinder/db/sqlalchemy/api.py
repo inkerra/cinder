@@ -70,21 +70,27 @@ if 'keystone_authtoken' not in config:
                    secret=True),
     ]
     config.register_opts(extra_opts, group='keystone_authtoken')
-if config.keystone_authtoken.get('auth_uri'):
-    auth_uri = '%s/v2.0/' % config.keystone_authtoken.auth_uri
-    auth_uri_v3 = '%s/v3/' % config.keystone_authtoken.auth_uri
+
+
+def _ks(version):
+    auth_uri = '%s/%s/' % (config.keystone_authtoken.auth_uri, version)
     admin_tenant_name = config.keystone_authtoken.admin_tenant_name
     admin_user = config.keystone_authtoken.admin_user
     admin_password = config.keystone_authtoken.admin_password
+    ksc = keystoneclient.v2_0 if version == 'v2.0' else keystoneclient.v3
+    ks = ksc.client.Client(username=admin_user,
+                           password=admin_password,
+                           tenant_name=admin_tenant_name,
+                           auth_url=auth_uri)
+    return ks
 
-    #ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
-    #                                        password=admin_password,
-    #                                        tenant_name=admin_tenant_name,
-    #                                        auth_url=auth_uri_v3)
-    #ks = keystoneclient.v2_0.client.Client(username=admin_user,
-    #                                       password=admin_password,
-    #                                       tenant_name=admin_tenant_name,
-    #                                       auth_url=auth_uri)
+
+def _ks_v2():
+    return _ks('v2.0')
+
+
+def _ks_v3():
+    return _ks('v3')
 
 
 def get_backend():
@@ -1322,54 +1328,70 @@ def volume_permission_get_all_by_volume(cxt, vol):
 
 def check_user_in_group(user_id, group_id):
     try:
-        ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
-                                                password=admin_password,
-                                                tenant_name=admin_tenant_name,
-                                                auth_url=auth_uri_v3)
-        return ks_v3.users.check_in_group(user_id, group_id)
+        ks = _ks_v3()
+        return ks.users.check_in_group(user_id, group_id)
     except Exception:
         return False
 
 
-#def check_user_is_admin(cxt, user_id):
-#    if user_id == 'everyone':
-#        return False
-#    try:
-#        ks = keystoneclient.v2_0.client.Client(username=admin_user,
-#                                                password=admin_password,
-#                                                tenant_name=admin_tenant_name,
-#                                                auth_url=auth_uri)
-#    except Exception:
-#        return False
-#    roles = ks.roles.roles_for_user(user_id, cxt.project_id)
-#    admin = filter(lambda r: r.name == 'admin', roles)
-#    return bool(admin)
+def check_user_is_admin(user_id, projects):
+    if user_id == 'everyone':
+        return False
+    try:
+        ks = _ks_v2()
+    except Exception:
+        return False
+
+    if 'everyone' in projects:
+        projects = ks.tenants.list()
+
+    for project in projects:
+        roles = ks.roles.roles_for_user(user_id, project)
+        admin = filter(lambda r: r.name == 'admin', roles)
+        if admin:
+            return True
+    return False
 
 
-def volume_permission_validate_subject(ctx, perm_type, subject):
-    if subject == 'everyone' or \
-       (perm_type == 'user' and ctx.user_id == subject):
+def _volume_permission_validate_user(ctx, subject):
+    if subject == 'everyone' or ctx.user_id == subject:
         return subject
     try:
-        ks_v3 = keystoneclient.v3.client.Client(username=admin_user,
-                                                password=admin_password,
-                                                tenant_name=admin_tenant_name,
-                                                auth_url=auth_uri_v3)
+        ks = _ks_v3()
+    except Exception:
+        return subject
+    found = filter(lambda u: u.name == subject, ks.users.list())
+    if len(found) == 1:
+        return found[0].id
+    found = ks.users.get(subject)
+    if found:
+        return found.id
+    raise exception.VolumePermissionSubjectNotFound(type='user', id=subject)
+
+
+def _volume_permission_validate_group(ctx, subject):
+    if subject == 'everyone':
+        return subject
+    try:
+        ks = _ks_v3()
     except Exception:
         return subject
 
+    found = ks.groups.get(subject)
+    if found:
+        return found.id
+
+    raise exception.VolumePermissionSubjectNotFound(type='group', id=subject)
+
+
+def volume_permission_validate_subject(ctx, perm_type, subject):
     if perm_type == 'user':
-        found = filter(lambda u: u.name == subject, ks_v3.users.list())
-        if len(found) == 1:
-            return found[0].id
-        found = ks_v3.users.get(subject)
-        if found:
-            return found.id
+        return _volume_permission_validate_user(ctx, subject)
+
     if perm_type == 'group':
-        found = ks_v3.groups.get(subject)
-        if found:
-            return found.id
-    raise exception.VolumePermissionSubjectNotFound(id=subject)
+        return _volume_permission_validate_group(ctx, subject)
+
+    raise exception.VolumePermissionSubjectNotFound(type=perm_type, id=subject)
 
 
 @require_context

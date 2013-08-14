@@ -38,16 +38,20 @@ class API(base.Base):
         rv = self.db.volume_permission_get(cxt, volume_permission_id)
         return dict(rv.iteritems())
 
-    def _get_write_perm_access(self, cxt, vol_id, perm_type, user_or_group_id):
-        #if perm_type == 'user' \
-        #   and self.db.check_user_is_admin(cxt, user_or_group_id):
-        #    r = _("Admin's permissions can't be modified")
-        #    raise exc.NoWritePermissionAccess(reason=r)
-        vol = self.db.volume_get(cxt, vol_id)
-        if cxt.is_admin or cxt.user_id == vol.user_id:
+    def _get_write_perm_access(self, cxt, vol_id, perm_type, subject):
+        if cxt.is_admin:
             return True
-        if perm_type == 'user' and user_or_group_id == vol.user_id:
-            r = _("owner's permissions can be changed by admins only")
+        vol = self.db.volume_get(cxt, vol_id)
+        #TODO(aguzikova): cross-tenant admin support
+        projects_public_for = [vol.project_id]
+        if perm_type == 'user' and \
+           self.db.check_user_is_admin(subject, projects_public_for):
+            r = _("admin permissions can be changed by admins only")
+            raise exc.NoWritePermissionAccess(reason=r)
+        if cxt.user_id == vol.user_id:
+            return True
+        if perm_type == 'user' and subject == vol.user_id:
+            r = _("owner permissions can be changed by admins/owner only")
             raise exc.NoWritePermissionAccess(reason=r)
 
         return self.db.volume_permission_has_write_perm_access(cxt, vol_id)

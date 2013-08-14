@@ -279,9 +279,13 @@ def check_user_in_group(user_id, group_id):
     return IMPL.check_user_in_group(user_id, group_id)
 
 
-#def check_user_is_admin(context, user_id):
-#    """Check User is Admin."""
-#    return IMPL.check_user_is_admin(context, user_id)
+def check_user_is_admin(user_id, projects):
+    """
+    Check User has admin role in one of the projects at least.
+    """
+    return IMPL.check_user_is_admin(user_id, projects)
+
+
 def volume_permission_validate_subject(context, perm_type, subject):
     """Validate volume permission subject."""
     return IMPL.volume_permission_validate_subject(context, perm_type, subject)
