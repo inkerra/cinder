@@ -57,11 +57,6 @@ class VolumeACLPermissionTestCase(test.TestCase):
     def test_volume_permission_create_update_delete(self):
         acl_api = volume_acl_api.API()
         volume = self._create_volume('1')
-        owner_perm_id = 1
-        auto_perm = db.volume_permission_get(self.ctxt, owner_perm_id)
-        self.assertEquals(auto_perm.volume_id, volume.id)
-        self.assertEquals(auto_perm.user_or_group_id, self.ctxt.user_id)
-        self.assertEquals(auto_perm.access_permission, 7)
         new_access_permission = 7
         new_user = 'new_user_id'
         new_perm = acl_api.create(self.ctxt, volume.id, new_user,
@@ -70,11 +65,11 @@ class VolumeACLPermissionTestCase(test.TestCase):
         self.assertEquals(new_perm.type, 'user')
         self.assertEquals(new_perm.user_or_group_id, new_user)
 
-        new_owner_permission = 4
-        self.assertRaises(exception.WrongAccessPermissionLevel,
-                          acl_api.create,
-                          self.ctxt, volume.id, self.ctxt.user_id,
-                          access_permission=new_owner_permission)
+        new_owner_permission = 1
+        new_owner_perm = acl_api.create(self.ctxt, volume.id,
+                                        self.ctxt.user_id,
+                                        access_permission=new_owner_permission)
+        self.assertEquals(new_owner_perm.user_or_group_id, self.ctxt.user_id)
         nctxt = context.RequestContext(user_id=new_user,
                                        project_id=self.ctxt.project_id)
         self.assertRaises(exception.WrongAccessPermissionLevel,
@@ -90,13 +85,10 @@ class VolumeACLPermissionTestCase(test.TestCase):
         perm = acl_api.create(context.get_admin_context(), volume.id,
                               self.ctxt.user_id,
                               access_permission=new_owner_permission)
-        self.assertEquals(perm.id, owner_perm_id)
+        self.assertEquals(perm.id, 2)
         self.assertEquals(perm.access_permission, new_owner_permission)
         acl_api.delete(self.ctxt, new_perm.id)
-        self.assertRaises(exception.WrongAccessPermissionLevel,
-                          acl_api.delete,
-                          self.ctxt, owner_perm_id)
-        acl_api.delete(context.get_admin_context(), owner_perm_id)
+        acl_api.delete(self.ctxt, perm.id)
 
     def test_volume_permission_create_not_found_volume(self):
         acl_api = volume_acl_api.API()
@@ -108,9 +100,6 @@ class VolumeACLPermissionTestCase(test.TestCase):
     def test_volume_permission_get(self):
         acl_api = volume_acl_api.API()
         volume = self._create_volume('1')
-        owner_perm_id = 1
-        auto_perm = acl_api.get(self.ctxt, owner_perm_id)
-        self.assertEquals(auto_perm['id'], owner_perm_id)
         new_access_permission = 7
         new_user = 'new_user_id'
         created_perm = acl_api.create(self.ctxt, volume.id, new_user,
@@ -118,20 +107,24 @@ class VolumeACLPermissionTestCase(test.TestCase):
         new_perm = acl_api.get(self.ctxt, created_perm.id)
         self.assertEquals(created_perm.id, new_perm['id'])
         volume2 = self._create_volume('2')
+        acl_api.create(self.ctxt, volume2.id, new_user,
+                       access_permission=new_access_permission)
         volume3 = self._create_volume('3', ctxt=context.get_admin_context())
+        acl_api.create(context.get_admin_context(), volume3.id,
+                       new_user, access_permission=new_access_permission)
         self.assertEquals(volume3.id, '3')
         perms = acl_api.get_all(self.ctxt)
-        self.assertEquals(len(perms), 3)
+        self.assertEquals(len(perms), 2)
         perms_for_vol1 = acl_api.get_all_by_volume(self.ctxt, volume.id)
-        self.assertEquals(len(perms_for_vol1), 2)
+        self.assertEquals(len(perms_for_vol1), 1)
         perms_for_vol2 = acl_api.get_all_by_volume(self.ctxt, volume2.id)
         self.assertEquals(len(perms_for_vol2), 1)
         all_perms = acl_api.get_all(context.get_admin_context())
-        self.assertEquals(len(all_perms), 4)
+        self.assertEquals(len(all_perms), 3)
 
-        # volume permissions of volume3 (created by admin) is 4
-        self.assertRaises(exception.WrongAccessPermissionLevel,
+        # volume permissions of volume3 (created by admin) is 3
+        self.assertRaises(exception.VolumePermissionNotFound,
                           acl_api.get,
-                          self.ctxt, '4')
-        perm = acl_api.get(context.get_admin_context(), 4)
-        self.assertEquals(perm['id'], 4)
+                          self.ctxt, '3')
+        perm = acl_api.get(context.get_admin_context(), 3)
+        self.assertEquals(perm['id'], 3)

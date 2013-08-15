@@ -1256,8 +1256,13 @@ def volume_permission_get(cxt, vol_perm_id, session=None):
 
     if not perm:
         raise exception.VolumePermissionNotFound(id=vol_perm_id)
-    has_access = volume_permission_has_read_perm_access(cxt, perm.volume_id,
-                                                        session)
+    try:
+        has_access = volume_permission_has_read_perm_access(cxt,
+                                                            perm.volume_id,
+                                                            session)
+    except exception.VolumeNotFound:
+        raise exception.VolumePermissionNotFound(id=vol_perm_id)
+
     actual_perm = volume_permission_get_by_user(cxt, perm.volume_id)
     if not has_access and \
        not (actual_perm and perm.id == actual_perm.id):

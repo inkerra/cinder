@@ -153,16 +153,23 @@ class VolumeACLAPITestCase(test.TestCase):
 
     def test_show_own_volume_permission(self):
         volume_id = self._create_volume(size=1)
+        perm_url = '/v2/%s/os-volume-acl/%s' % (self.ctxt.project_id, 1)
+        res = get_response(perm_url, 'json')
+        self.assertEqual(res.status_int, 404)
+
+        created_perm = self._create_volume_permission(volume_id,
+                                                      self.ctxt.user_id)
         now = timeutils.utcnow()
-        perm_id = 1
-        perm_url = '/v2/%s/os-volume-acl/%s' % (self.ctxt.project_id, perm_id)
+
+        perm_url = '/v2/%s/os-volume-acl/%s' % (self.ctxt.project_id,
+                                                created_perm.id)
         res = get_response(perm_url, 'json')
         self.assertEqual(res.status_int, 200)
         res_dict = json.loads(res.body)
         perm = res_dict['volume_acl_permission']
         self.check_just_created(now, perm)
         expected = {
-            'id': perm_id,
+            'id': created_perm.id,
             'volume_id': volume_id,
             'type': 'user',
             'user_or_group_id': self.ctxt.user_id,
@@ -183,15 +190,22 @@ class VolumeACLAPITestCase(test.TestCase):
 
     def test_show_own_volume_permission_xml_content_type(self):
         volume_id = self._create_volume(size=1)
+        perm_url = '/v2/%s/os-volume-acl/%s' % (self.ctxt.project_id, 1)
+        res = get_response(perm_url, 'xml')
+        self.assertEqual(res.status_int, 404)
+
+        created_perm = self._create_volume_permission(volume_id,
+                                                      self.ctxt.user_id)
         now = timeutils.utcnow()
-        perm_id = 1
-        perm_url = '/v2/%s/os-volume-acl/%s' % (self.ctxt.project_id, perm_id)
+
+        perm_url = '/v2/%s/os-volume-acl/%s' % (self.ctxt.project_id,
+                                                created_perm.id)
         res = get_response(perm_url, 'xml')
         self.assertEqual(res.status_int, 200)
         dom = minidom.parseString(res.body)
         perm_xml = dom.getElementsByTagName('volume_acl_permission')[0]
         perm = dict(perm_xml.attributes.items())
-        self.assertEqual(int(perm['id']), perm_id)
+        self.assertEqual(int(perm['id']), created_perm.id)
         self.assertEqual(perm['volume_id'], volume_id)
         self.assertEqual(perm['type'], 'user')
         self.assertEqual(perm['user_or_group_id'], self.ctxt.user_id)
@@ -215,6 +229,8 @@ class VolumeACLAPITestCase(test.TestCase):
 
     def list_volume_permissions_json(self, base_url):
         volumes = [self._create_volume(size=1), self._create_volume(size=1)]
+        for vol in volumes:
+            self._create_volume_permission(vol, self.ctxt.user_id)
 
         def get_perms():
             perms_url = base_url % self.ctxt.project_id
@@ -246,6 +262,8 @@ class VolumeACLAPITestCase(test.TestCase):
 
     def list_volume_permissions_xml(self, base_url):
         volumes = [self._create_volume(size=1), self._create_volume(size=1)]
+        for vol in volumes:
+            self._create_volume_permission(vol, self.ctxt.user_id)
 
         def get_perms():
             perms_url = base_url % self.ctxt.project_id
@@ -401,16 +419,6 @@ class VolumeACLAPITestCase(test.TestCase):
                  }
                 }
         res = post_response('/v2/fake/os-volume-acl', 'json', body)
-        self.assertEqual(res.status_int, 404)
-        res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['itemNotFound']['code'], 404)
-        self.assertEqual(
-            res_dict['itemNotFound']['message'],
-            "NoWritePermissionAccess: No write permissions access: "
-            "owner's permissions can be changed by admins only.")
-
-        res = post_response('/v2/fake/os-volume-acl', 'json', body,
-                            context.get_admin_context())
         self.assertEqual(res.status_int, 202)
         res_dict = json.loads(res.body)
         LOG.info(res_dict)
@@ -451,19 +459,10 @@ class VolumeACLAPITestCase(test.TestCase):
 
     def test_delete_owner_volume_permission(self):
         volume_id = self._create_volume(size=1)
+        self._create_volume_permission(volume_id, self.ctxt.user_id)
         perm_id = db.volume_permission_get_existent(self.ctxt, volume_id,
                                                     self.ctxt.user_id).id
         res = delete_response('/v2/fake/os-volume-acl/%s' % perm_id, 'json')
-        self.assertEqual(res.status_int, 404)
-        res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['itemNotFound']['code'], 404)
-        self.assertEqual(
-            res_dict['itemNotFound']['message'],
-            "NoWritePermissionAccess: No write permissions access: "
-            "owner's permissions can be changed by admins only.")
-
-        res = delete_response('/v2/fake/os-volume-acl/%s' % perm_id, 'json',
-                              context.get_admin_context())
         self.assertEqual(res.status_int, 202)
 
         perm_url = '/v2/%s/os-volume-acl/%s' % (self.ctxt.project_id, perm_id)
