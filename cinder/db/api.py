@@ -296,9 +296,9 @@ def volume_permission_get_by_user(context, volume_id):
     return IMPL.volume_permission_get_by_user(context, volume_id)
 
 
-def volume_access_permission(context, volume_id):
+def volume_access(context, volume_id):
     """Get volume access permission for the user."""
-    return IMPL.volume_access_permission(context, volume_id)
+    return IMPL.volume_access(context, volume_id)
 
 
 def volume_permission_get_existent(context, volume_id, user_or_group_id,

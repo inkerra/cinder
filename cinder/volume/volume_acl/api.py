@@ -38,6 +38,9 @@ class API(base.Base):
         rv = self.db.volume_permission_get(cxt, volume_permission_id)
         return dict(rv.iteritems())
 
+    def get_access(self, cxt, volume_id):
+        return self.db.volume_access(cxt, volume_id)
+
     def _get_write_perm_access(self, cxt, vol_id, perm_type, subject):
         if cxt.is_admin:
             return True

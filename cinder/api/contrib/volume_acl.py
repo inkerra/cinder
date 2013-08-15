@@ -97,6 +97,11 @@ class VolumeACLController(wsgi.Controller):
         """Return data about active volume_permissions."""
         context = req.environ['cinder.context']
 
+        if 'volume_id' in req.params:
+            volume_id = req.params['volume_id']
+            access = self.volume_acl_api.get_access(context, volume_id)
+            return self._view_builder.access(req, access)
+
         try:
             volume_permission = \
                 self.volume_acl_api.get(context, volume_permission_id=id)

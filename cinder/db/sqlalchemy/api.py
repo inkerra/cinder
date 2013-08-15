@@ -1043,13 +1043,7 @@ def volume_create(context, values):
     session = get_session()
     with session.begin():
         volume_ref.save(session=session)
-
-    volume_permission_create(context, {'volume_id': values['id'],
-                                       'type': 'user',
-                                       'user_or_group_id': context.user_id,
-                                       'access_permission': 7
-                                       })
-    return _volume_get(context, values['id'])
+        return _volume_get(context, values['id'], session)
 
 
 @require_admin_context
@@ -1421,11 +1415,14 @@ def volume_permission_get_by_user(cxt, vol_id, session=None):
     return perm
 
 
-def volume_access_permission(cxt, vol_id, session=None):
-    if cxt.is_admin:
+def volume_access(cxt, vol_id, session=None):
+    vol = volume_find(cxt, vol_id)
+    vol_perm = volume_permission_get_by_user(cxt, vol.id, session)
+    if vol_perm:
+        return vol_perm.access_permission
+    if cxt.is_admin or vol.user_id == cxt.user_id:
         return 7
-    vol_perm = volume_permission_get_by_user(cxt, vol_id, session)
-    return vol_perm.access_permission if vol_perm else 0
+    return 0
 
 
 @require_context
@@ -1440,8 +1437,10 @@ def volume_permission_get_existent(context, volume_id, user_or_group_id,
 
 def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
                                        session=None):
-    #import ipdb; ipdb.set_trace()
     if cxt.is_admin:
+        return True
+    vol = volume_get(cxt, vol_id)
+    if cxt.user_id == vol.user_id:
         return True
     perms = _volume_permissions_get_by_volume(cxt, vol_id, session).\
         filter(access_filter).\

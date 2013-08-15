@@ -68,6 +68,20 @@ class ViewBuilder(common.ViewBuilder):
             }
         }
 
+    def access(self, request, access):
+        """View of volume access permission."""
+        return {
+            'volume_acl_permission': {
+                'id': None,
+                'created_at': None,
+                'volume_id': None,
+                'type': None,
+                'user_or_group_id': None,
+                'access_permission': access,
+                'links': None,
+            }
+        }
+
     def create(self, request, volume_acl_permission):
         """Detailed view of a single volume permission when created."""
         return {
