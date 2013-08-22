@@ -62,6 +62,19 @@ class VolumeACLPermissionsTableTestCase(test.TestCase):
         volume_permission['access_permission'] = access_permission
         return db.volume_permission_create(self.ctxt, volume_permission)['id']
 
+    def _volume_permission_detail(self, permission):
+        r = {}
+        r['id'] = permission['id']
+        r['volume_id'] = permission['volume_id']
+        r['type'] = permission['type']
+        r['user_or_group_id'] = permission['user_or_group_id']
+        r['access_permission'] = permission['access_permission']
+        r['deleted'] = permission['deleted']
+        r['deleted_at'] = permission['deleted_at']
+        r['created_at'] = permission['created_at']
+        r['updated_at'] = permission['updated_at']
+        return r
+
     def test_volume_permission_create(self):
         volume_id = self._create_volume(size=1)
         self._create_volume_permission(volume_id=volume_id,
@@ -87,11 +100,11 @@ class VolumeACLPermissionsTableTestCase(test.TestCase):
     def test_volume_permission_get_existent(self):
         volume_id = self._create_volume(size=1)
         perm_id = self._create_volume_permission(volume_id, self.ctxt.user_id)
-        found = db.volume_permission_get_existent(self.ctxt, volume_id,
-                                                  self.ctxt.user_id, 'user')
+        found = db.volume_permission_find(self.ctxt, volume_id,
+                                          self.ctxt.user_id, 'user')
         perm = db.volume_permission_get(self.ctxt, perm_id)
-        self.assertEquals(db.volume_permission_detail(perm),
-                          db.volume_permission_detail(found))
+        self.assertEquals(self._volume_permission_detail(perm),
+                          self._volume_permission_detail(found))
 
     def test_volume_permission_get_by_user(self):
         volume_id = self._create_volume(size=1)

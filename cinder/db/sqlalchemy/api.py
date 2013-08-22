@@ -1164,15 +1164,13 @@ def _volume_get(context, volume_id, session=None):
 
 
 @require_context
-def volume_find(context, id_or_name, session=None):
+def volume_find(cxt, id_or_name):
     try:
-        result = volume_get(context, id_or_name)
+        result = volume_get(cxt, id_or_name)
         return result
     except exception.VolumeNotFound:
         pass
-    result = _volume_get_query(context, session=session).\
-        filter_by(display_name=id_or_name).all()
-
+    result = _volume_get_query(cxt).filter_by(display_name=id_or_name).all()
     if len(result) == 1:
         return result[0]
     raise exception.VolumeNotFound(volume_id=id_or_name)
@@ -1249,8 +1247,8 @@ def _volume_permissions_get_by_volume(cxt, volume_id, session=None):
 
 
 @require_context
-def volume_permission_get(cxt, vol_perm_id, session=None):
-    query = model_query(cxt, models.VolumeACLPermission, session=session).\
+def volume_permission_get(cxt, vol_perm_id):
+    query = model_query(cxt, models.VolumeACLPermission).\
         filter_by(id=vol_perm_id)
     perm = query.first()
 
@@ -1258,8 +1256,7 @@ def volume_permission_get(cxt, vol_perm_id, session=None):
         raise exception.VolumePermissionNotFound(id=vol_perm_id)
     try:
         has_access = volume_permission_has_read_perm_access(cxt,
-                                                            perm.volume_id,
-                                                            session)
+                                                            perm.volume_id)
     except exception.VolumeNotFound:
         raise exception.VolumePermissionNotFound(id=vol_perm_id)
 
@@ -1279,15 +1276,6 @@ def _translate_volume_permission(permission):
     r['type'] = permission['type']
     r['user_or_group_id'] = permission['user_or_group_id']
     r['access_permission'] = permission['access_permission']
-    return r
-
-
-def volume_permission_detail(permission):
-    r = _translate_volume_permission(permission)
-    r['deleted'] = permission['deleted']
-    r['deleted_at'] = permission['deleted_at']
-    r['created_at'] = permission['created_at']
-    r['updated_at'] = permission['updated_at']
     return r
 
 
@@ -1314,9 +1302,8 @@ def volume_permission_get_all_by_volume(cxt, vol):
     res = []
     session = get_session()
     with session.begin():
-        vol_id = volume_find(cxt, vol, session=session).id
-        if volume_permission_has_read_perm_access(cxt, vol_id,
-                                                  session=session):
+        vol_id = volume_find(cxt, vol).id
+        if volume_permission_has_read_perm_access(cxt, vol_id):
             res = _volume_permissions_get_by_volume(cxt, vol_id, session).all()
         else:
             perm = volume_permission_get_by_user(cxt, vol_id)
@@ -1394,10 +1381,10 @@ def volume_permission_validate_subject(ctx, perm_type, subject):
 
 
 @require_context
-def volume_permission_get_by_user(cxt, vol_id, session=None):
+def volume_permission_get_by_user(cxt, vol_id):
     volume_permission = models.VolumeACLPermission
 
-    vol_p_q = _volume_permissions_get_by_volume(cxt, vol_id, session)
+    vol_p_q = _volume_permissions_get_by_volume(cxt, vol_id)
     user_p_q = vol_p_q.filter(volume_permission.type == 'user')
 
     user_p = user_p_q.filter(volume_permission.user_or_group_id ==
@@ -1420,9 +1407,9 @@ def volume_permission_get_by_user(cxt, vol_id, session=None):
     return perm
 
 
-def volume_access(cxt, vol_id, session=None):
+def volume_access(cxt, vol_id):
     vol = volume_find(cxt, vol_id)
-    vol_perm = volume_permission_get_by_user(cxt, vol.id, session)
+    vol_perm = volume_permission_get_by_user(cxt, vol.id)
     if vol_perm:
         return vol_perm.access_permission
     if cxt.is_admin or vol.user_id == cxt.user_id:
@@ -1431,25 +1418,23 @@ def volume_access(cxt, vol_id, session=None):
 
 
 @require_context
-def volume_permission_get_existent(context, volume_id, user_or_group_id,
-                                   permission_type='user', session=None):
+def volume_permission_find(context, volume_id, user_or_group_id,
+                           permission_type='user'):
     volume_permission = models.VolumeACLPermission
-    query = _volume_permissions_get_by_volume(context, volume_id, session).\
+    query = _volume_permissions_get_by_volume(context, volume_id).\
         filter(volume_permission.type == permission_type).\
         filter(volume_permission.user_or_group_id == user_or_group_id)
     return query.first()
 
 
-def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
-                                       session=None):
+def _volume_permission_has_perm_access(cxt, vol_id, access_filter):
     if cxt.is_admin:
         return True
     vol = volume_get(cxt, vol_id)
     if cxt.user_id == vol.user_id:
         return True
-    perms = _volume_permissions_get_by_volume(cxt, vol_id, session).\
-        filter(access_filter).\
-        all()
+    perms = _volume_permissions_get_by_volume(cxt, vol_id).\
+        filter(access_filter).all()
     for p in filter(lambda p: p.type == 'user', perms):
         if p.user_or_group_id in (cxt.user_id, 'everyone'):
             return True
@@ -1460,37 +1445,32 @@ def _volume_permission_has_perm_access(cxt, vol_id, access_filter,
 
 
 @require_context
-def volume_permission_has_read_perm_access(cxt, vol_id, session=None):
+def volume_permission_has_read_perm_access(cxt, vol_id):
     vol_perm = models.VolumeACLPermission
     return _volume_permission_has_perm_access(cxt, vol_id,
-                                              vol_perm.access_permission >= 3,
-                                              session)
+                                              vol_perm.access_permission >= 3)
 
 
 @require_context
-def volume_permission_has_write_perm_access(cxt, vol_id, session=None):
+def volume_permission_has_write_perm_access(cxt, vol_id):
     vol_perm = models.VolumeACLPermission
     return _volume_permission_has_perm_access(
         cxt, vol_id,
-        or_(vol_perm.access_permission == 4, vol_perm.access_permission == 7),
-        session)
+        or_(vol_perm.access_permission == 4, vol_perm.access_permission == 7))
 
 
 @require_context
 def volume_permission_create(context, values):
-    session = get_session()
     if not values.get('id'):
         vol_perm = \
-            volume_permission_get_existent(context, values['volume_id'],
-                                           values['user_or_group_id'],
-                                           values['type'],
-                                           session=session)
+            volume_permission_find(context, values['volume_id'],
+                                   values['user_or_group_id'], values['type'])
         if vol_perm:
             values['id'] = vol_perm['id']
             volume_permission = vol_perm
-
     if not values.get('id'):
         volume_permission = models.VolumeACLPermission()
+    session = get_session()
     with session.begin():
         volume_permission.update(values)
         volume_permission.save(session=session)
@@ -1501,10 +1481,9 @@ def volume_permission_delete(cxt, vol_perm_id):
     session = get_session()
     with session.begin():
         vol_id = volume_permission_get(cxt, vol_perm_id).volume_id
-        has_access = volume_permission_has_write_perm_access(cxt, vol_id,
-                                                             session)
+        has_access = volume_permission_has_write_perm_access(cxt, vol_id)
         if has_access:
-            session.query(models.VolumeACLPermission).\
+            model_query(cxt, models.VolumeACLPermission).\
                 filter_by(id=vol_perm_id).\
                 update({'deleted': True,
                         'deleted_at': timeutils.utcnow(),

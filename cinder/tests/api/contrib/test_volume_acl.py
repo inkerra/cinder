@@ -425,8 +425,8 @@ class VolumeACLAPITestCase(test.TestCase):
 
         updated_perm = res_dict['volume_acl_permission']
 
-        created_perm = db.volume_permission_get_existent(self.ctxt, volume_id,
-                                                         self.ctxt.user_id)
+        created_perm = db.volume_permission_find(self.ctxt, volume_id,
+                                                 self.ctxt.user_id)
         self.assertEqual(updated_perm['id'], created_perm['id'])
         expected = body['volume_acl_permission']
         for attr in expected:
@@ -460,8 +460,8 @@ class VolumeACLAPITestCase(test.TestCase):
     def test_delete_owner_volume_permission(self):
         volume_id = self._create_volume(size=1)
         self._create_volume_permission(volume_id, self.ctxt.user_id)
-        perm_id = db.volume_permission_get_existent(self.ctxt, volume_id,
-                                                    self.ctxt.user_id).id
+        perm_id = db.volume_permission_find(self.ctxt, volume_id,
+                                            self.ctxt.user_id).id
         res = delete_response('/v2/fake/os-volume-acl/%s' % perm_id, 'json')
         self.assertEqual(res.status_int, 202)
 

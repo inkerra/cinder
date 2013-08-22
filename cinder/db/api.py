@@ -217,9 +217,9 @@ def volume_get(context, volume_id):
     return IMPL.volume_get(context, volume_id)
 
 
-def volume_find(context, id_or_name, session=None):
+def volume_find(context, id_or_name):
     """Get a volume or raise if it does not exist."""
-    return IMPL.volume_find(context, id_or_name, session)
+    return IMPL.volume_find(context, id_or_name)
 
 
 def volume_get_all(context, marker, limit, sort_key, sort_dir):
@@ -247,11 +247,6 @@ def volume_get_all_by_project(context, project_id, marker, limit, sort_key,
 def volume_permission_get(context, vol_perm_id):
     """Get a volume permission record or raise if it does not exist."""
     return IMPL.volume_permission_get(context, vol_perm_id)
-
-
-def volume_permission_detail(volume_permission):
-    """Get a dict with details of the volume permission."""
-    return IMPL.volume_permission_detail(volume_permission)
 
 
 def volume_permission_get_all(context):
@@ -301,25 +296,21 @@ def volume_access(context, volume_id):
     return IMPL.volume_access(context, volume_id)
 
 
-def volume_permission_get_existent(context, volume_id, user_or_group_id,
-                                   permission_type='user', session=None):
+def volume_permission_find(context, volume_id, user_or_group_id,
+                           permission_type='user'):
     """Get existing volume permission."""
-    return IMPL.volume_permission_get_existent(context, volume_id,
-                                               user_or_group_id,
-                                               permission_type,
-                                               session)
+    return IMPL.volume_permission_find(context, volume_id, user_or_group_id,
+                                       permission_type)
 
 
-def volume_permission_has_write_perm_access(context, volume_id, session=None):
+def volume_permission_has_write_perm_access(context, volume_id):
     """Check if has Write Permissions."""
-    return IMPL.volume_permission_has_write_perm_access(context, volume_id,
-                                                        session)
+    return IMPL.volume_permission_has_write_perm_access(context, volume_id)
 
 
-def volume_permission_has_read_perm_access(context, volume_id, session=None):
+def volume_permission_has_read_perm_access(context, volume_id):
     """Check if has Write Permissions."""
-    return IMPL.volume_permission_has_read_perm_access(context, volume_id,
-                                                       session)
+    return IMPL.volume_permission_has_read_perm_access(context, volume_id)
 
 
 def volume_get_iscsi_target_num(context, volume_id):
