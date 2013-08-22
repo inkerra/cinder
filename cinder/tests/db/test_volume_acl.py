@@ -17,7 +17,6 @@
 
 from cinder import context
 from cinder import db
-from cinder import exception
 from cinder.openstack.common import log as logging
 from cinder import test
 
@@ -90,14 +89,12 @@ class VolumeACLPermissionsTableTestCase(test.TestCase):
 
         nctxt = context.RequestContext(user_id='new_user_id',
                                        project_id='new_project_id')
-        self.assertRaises(exception.VolumePermissionNotFound,
-                          db.volume_permission_get, nctxt, perm_id)
 
-        vol_perm = db.volume_permission_get(nctxt.elevated(), perm_id)
+        vol_perm = db.volume_permission_get(nctxt, perm_id)
         self.assertEquals(vol_perm.volume_id, volume_id1,
                           "Unexpected volume_id")
 
-    def test_volume_permission_get_existent(self):
+    def test_volume_permission_find(self):
         volume_id = self._create_volume(size=1)
         perm_id = self._create_volume_permission(volume_id, self.ctxt.user_id)
         found = db.volume_permission_find(self.ctxt, volume_id,
@@ -106,26 +103,12 @@ class VolumeACLPermissionsTableTestCase(test.TestCase):
         self.assertEquals(self._volume_permission_detail(perm),
                           self._volume_permission_detail(found))
 
-    def test_volume_permission_get_by_user(self):
-        volume_id = self._create_volume(size=1)
-        perm_id = self._create_volume_permission(volume_id, self.ctxt.user_id)
-        perm = db.volume_permission_get_by_user(self.ctxt, volume_id)
-        self.assertEquals(perm.access_permission, 7)
-        new_access_perm = 4
-        perm_id = self._create_volume_permission(volume_id=volume_id,
-                                                 user_or_group_id=
-                                                 self.ctxt.user_id,
-                                                 access_permission=
-                                                 new_access_perm)
-        self.assertEquals(perm_id, perm.id)
-        perm2 = db.volume_permission_get(self.ctxt, perm_id)
-        self.assertEquals(perm2.access_permission, new_access_perm)
-
     def test_volume_permission_get_all(self):
         volumes = [self._create_volume(size=1), self._create_volume(size=1)]
         for vol in volumes:
             self._create_volume_permission(vol, self.ctxt.user_id)
-        perms = db.volume_permission_get_all(self.ctxt)
+        perms = db.volume_permission_get_all(self.ctxt, None, None,
+                                             'created_at', 'desc')
         self.assertEquals(len(perms), len(volumes),
                           "Unexpected number of volume permission records")
 
@@ -136,7 +119,6 @@ class VolumeACLPermissionsTableTestCase(test.TestCase):
                                        user_or_group_id='user_id2',
                                        access_permission=3)
         volume_id2 = self._create_volume(size=1)
-        self._create_volume_permission(volume_id, self.ctxt.user_id)
         self._create_volume_permission(volume_id=volume_id2,
                                        user_or_group_id='user_id2',
                                        access_permission=4)
@@ -149,18 +131,19 @@ class VolumeACLPermissionsTableTestCase(test.TestCase):
         self._create_volume_permission(vol1, self.ctxt.user_id)
         vol2 = self._create_volume(size=1)
         self._create_volume_permission(vol2, self.ctxt.user_id)
-        perms = db.volume_permission_get_all(self.ctxt)
+        perms = db.volume_permission_get_all(self.ctxt, None, None,
+                                             'created_at', 'desc')
         self.assertEquals(len(perms), 2,
                           "Unexpected number of transfer records")
         db.volume_permission_delete(self.ctxt, perms[0]['id'])
-        perms = db.volume_permission_get_all(self.ctxt)
+        perms = db.volume_permission_get_all(self.ctxt, None, None,
+                                             'created_at', 'desc')
         self.assertEquals(len(perms), 1,
                           "Unexpected number of transfer records")
         nctxt = context.RequestContext(user_id='new_user_id',
                                        project_id='new_project_id')
-        self.assertRaises(exception.VolumePermissionNotFound,
-                          db.volume_permission_delete, nctxt, perms[0]['id'])
-        db.volume_permission_delete(nctxt.elevated(), perms[0]['id'])
-        perms = db.volume_permission_get_all(context.get_admin_context())
+        db.volume_permission_delete(nctxt, perms[0]['id'])
+        perms = db.volume_permission_get_all(context.get_admin_context(),
+                                             None, None, 'created_at', 'desc')
         self.assertEquals(len(perms), 0,
                           "Unexpected number of volume permission records")

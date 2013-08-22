@@ -57,8 +57,11 @@ class API(base.Base):
                                    tenant_name=admin_tenant_name,
                                    auth_url=auth_uri)
             return ks
-        self.ksc_v2 = _ksc('v2.0')
-        self.ksc_v3 = _ksc('v3')
+        try:
+            self.ksc_v2 = _ksc('v2.0')
+            self.ksc_v3 = _ksc('v3')
+        except Exception:
+            pass
         super(API, self).__init__(db_driver)
 
     def check_user_in_group(self, user_id, group_id):

@@ -52,7 +52,6 @@ class API(base.Base):
     def _volume_permission_validate_user(self, ctx, subject):
         if subject == 'everyone' or ctx.user_id == subject:
             return subject
-        import ipdb; ipdb.set_trace()
         try:
             found = self.identity.get_user(subject)
         except Exception:
