@@ -1052,7 +1052,8 @@ def volume_create(context, values):
     session = get_session()
     with session.begin():
         volume_ref.save(session=session)
-        return _volume_get(context, values['id'], session)
+
+        return _volume_get(context, values['id'], session=session)
 
 
 @require_admin_context
@@ -1247,10 +1248,8 @@ def volume_get_all_by_project(context, project_id, marker, limit, sort_key,
 
 
 def _volume_permissions_get_by_volume(cxt, volume_id, session=None):
-    volume_permission = models.VolumeACLPermission
-    q = model_query(cxt, volume_permission, session=session).\
-        filter(volume_permission.volume_id == volume_id)
-    return q
+    return model_query(cxt, models.VolumeACLPermission, session=session).\
+        filter_by(volume_id=volume_id)
 
 
 @require_context
@@ -1293,28 +1292,28 @@ def volume_permission_get_all_by_volume(cxt, volume_id):
 @require_context
 def volume_permission_find(context, volume_id, user_or_group_id,
                            permission_type='user'):
-    volume_permission = models.VolumeACLPermission
     query = _volume_permissions_get_by_volume(context, volume_id).\
-        filter(volume_permission.type == permission_type).\
-        filter(volume_permission.user_or_group_id == user_or_group_id)
+        filter_by(type=permission_type).\
+        filter_by(user_or_group_id=user_or_group_id)
     return query.first()
 
 
 @require_context
-def volume_permission_get(cxt, vol_perm_id):
-    query = model_query(cxt, models.VolumeACLPermission).\
-        filter_by(id=vol_perm_id)
+def volume_permission_get(cxt, id):
+    query = model_query(cxt, models.VolumeACLPermission).filter_by(id=id)
     return query.first()
 
 
 @require_context
 def volume_permission_create(context, values):
-    if values.get('id'):
-        volume_permission = volume_permission_get(context, values.get('id'))
-    else:
-        volume_permission = models.VolumeACLPermission()
     session = get_session()
     with session.begin():
+        if values.get('id'):
+            volume_permission = _volume_permission_get(context,
+                                                       values.get('id'),
+                                                       session=session)
+        else:
+            volume_permission = models.VolumeACLPermission()
         volume_permission.update(values)
         volume_permission.save(session=session)
     return volume_permission
