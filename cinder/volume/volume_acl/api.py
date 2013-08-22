@@ -82,7 +82,7 @@ class API(base.Base):
         raise exc.VolumePermissionSubjectNotFound(type=perm_type, id=subject)
 
     def _volume_permission_get_by_user(self, cxt, vol_id):
-        perms = self._volume_permission_get_by_volume(cxt, vol_id)
+        perms = self.db.volume_permission_get_all_by_volume(cxt, vol_id)
 
         for_user = filter(
             lambda p: p.type == 'user' and p.user_or_group_id == cxt.user_id,
@@ -139,7 +139,7 @@ class API(base.Base):
         if cxt.user_id == vol.user_id:
             return True
 
-        all_perms = self.db.volume_get_all_by_volume(cxt, vol_id)
+        all_perms = self.db.volume_permission_get_all_by_volume(cxt, vol_id)
         perms = filter(access_filter, all_perms)
 
         for p in filter(lambda p: p.type == 'user', perms):
@@ -183,6 +183,9 @@ class API(base.Base):
         Deletes a volume permission in the volume_permissions table.
         """
         p = self.db.volume_permission_get(cxt, id)
+        if not p:
+            raise exc.VolumePermissionNotFound(id=id)
+
         write_perm_access = self._get_write_perm_access(cxt, p['volume_id'],
                                                         p['type'],
                                                         p['user_or_group_id'])

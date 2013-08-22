@@ -23,6 +23,7 @@ from cinder import exception
 from cinder.openstack.common import log as logging
 from cinder import test
 from cinder.volume.volume_acl import api as volume_acl_api
+from cinder.volume.volume_acl import identity
 
 
 LOG = logging.getLogger(__name__)
@@ -34,6 +35,24 @@ class VolumeACLPermissionTestCase(test.TestCase):
         super(VolumeACLPermissionTestCase, self).setUp()
         self.ctxt = context.RequestContext(user_id='user_id',
                                            project_id='project_id')
+
+        def fake_get_subject(self, subject):
+            return subject
+
+        def fake_check_user_in_group(self, user_id, group_id):
+            return True
+
+        def fake_check_user_is_admin(self, user_id, projects):
+            return False
+
+        self.stubs.Set(identity.API, 'get_user',
+                       fake_get_subject)
+        self.stubs.Set(identity.API, 'get_group',
+                       fake_get_subject)
+        self.stubs.Set(identity.API, 'check_user_in_group',
+                       fake_check_user_in_group)
+        self.stubs.Set(identity.API, 'check_user_is_admin',
+                       fake_check_user_is_admin)
 
     def _create_volume(self, volume_id, status='available',
                        user_id=None, project_id=None, ctxt=None):

@@ -97,4 +97,7 @@ class API(base.Base):
     def get_group(self, subject):
         if subject == 'everyone':
             return subject
-        return self.ksc_v3.groups.get(subject).id
+        try:
+            return self.ksc_v3.groups.get(subject).id
+        except exc.NotFound:
+            raise

@@ -30,6 +30,7 @@ from cinder.openstack.common import timeutils
 from cinder import test
 from cinder.tests.api import fakes
 from cinder.volume.volume_acl import API
+from cinder.volume.volume_acl import identity
 
 
 LOG = logging.getLogger(__name__)
@@ -81,6 +82,24 @@ class VolumeACLAPITestCase(test.TestCase):
         super(VolumeACLAPITestCase, self).setUp()
         self.ctxt = context.RequestContext(user_id='fake',
                                            project_id='fake')
+
+        def fake_get_subject(self, subject):
+            return subject
+
+        def fake_check_user_in_group(self, user_id, group_id):
+            return True
+
+        def fake_check_user_is_admin(self, user_id, projects):
+            return False
+
+        self.stubs.Set(identity.API, 'get_user',
+                       fake_get_subject)
+        self.stubs.Set(identity.API, 'get_group',
+                       fake_get_subject)
+        self.stubs.Set(identity.API, 'check_user_in_group',
+                       fake_check_user_in_group)
+        self.stubs.Set(identity.API, 'check_user_is_admin',
+                       fake_check_user_is_admin)
 
     def tearDown(self):
         super(VolumeACLAPITestCase, self).tearDown()
@@ -242,7 +261,9 @@ class VolumeACLAPITestCase(test.TestCase):
         perms = get_perms()
         length = 2
         self.assertEqual(len(perms), length)
-        for (volume, perm) in zip(volumes, perms):
+        by_volume = lambda p: p.get('volume_id')
+        for (volume, perm) in zip(sorted(volumes),
+                                  sorted(perms, key=by_volume)):
             self.assertEqual(perm['volume_id'], volume)
             self.assertEqual(perm['type'], 'user')
             self.assertEqual(perm['user_or_group_id'], self.ctxt.user_id)
@@ -277,7 +298,9 @@ class VolumeACLAPITestCase(test.TestCase):
         perms = get_perms()
         length = 2
         self.assertEqual(len(perms), length)
-        for (volume, perm) in zip(volumes, perms):
+        by_volume = lambda p: p.get('volume_id')
+        for (volume, perm) in zip(sorted(volumes),
+                                  sorted(perms, key=by_volume)):
             self.assertEqual(perm['volume_id'], volume)
             self.assertEqual(perm['type'], 'user')
             self.assertEqual(perm['user_or_group_id'], self.ctxt.user_id)
