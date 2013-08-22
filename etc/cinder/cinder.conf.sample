@@ -1480,8 +1480,9 @@
 # longer time. (boolean value)
 # gpfs_sparse_volumes=True
 
-# Total option count: 305
-
+#
+# Options defined in cinder.volume.volume_acl_identity
+#
 [keystone_authtoken]
 auth_host = 127.0.0.1
 auth_port = 35357
@@ -1490,3 +1491,5 @@ admin_tenant_name = %SERVICE_TENANT_NAME%
 admin_user = %SERVICE_USER%
 admin_password = %SERVICE_PASSWORD%
 auth_uri = %SERVICE_ENDPOINT%
+
+# Total option count: 312
