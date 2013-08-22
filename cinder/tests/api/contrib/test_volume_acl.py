@@ -479,7 +479,7 @@ class VolumeACLAPITestCase(test.TestCase):
     def test_delete_volume_permission_with_NotFound(self):
         perm_id = 9999
         res = delete_response('/v2/fake/os-volume-acl/%s' % perm_id, 'json',
-                              context.get_admin_context())
+                              self.ctxt)
         res_dict = json.loads(res.body)
 
         self.assertEqual(res.status_int, 404)

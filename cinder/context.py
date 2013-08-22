@@ -153,8 +153,8 @@ class RequestContext(object):
 
 
 def get_admin_context(read_deleted="no"):
-    return RequestContext(user_id='fake',
-                          project_id='fake',
+    return RequestContext(user_id=None,
+                          project_id=None,
                           is_admin=True,
                           read_deleted=read_deleted,
                           overwrite=False)
