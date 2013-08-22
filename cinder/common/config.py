@@ -194,6 +194,10 @@ global_opts = [
                default='cinder.volume.volume_acl.api.API',
                help='The full class name of the volume ACL API class '
                     'to use'),
+    cfg.StrOpt('volume_acl_identity_class',
+               default='cinder.volume.volume_acl.identity.keystone.API',
+               help='The full class name of the volume ACL Identity class '
+                    'to use'),
     cfg.StrOpt('backup_api_class',
                default='cinder.backup.api.API',
                help='The full class name of the volume backup API class'),
