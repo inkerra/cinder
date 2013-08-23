@@ -281,6 +281,22 @@ class VolumePermissionNotFound(NotFound):
     message = _("Volume Permission %(id)s could not be found.")
 
 
+class VolumePermissionSubjectNotFound(NotFound):
+    message = _("Volume Permission %(type)s %(id)s could not be found.")
+
+
+class WrongAccessPermissionLevel(NotAuthorized):
+    pass
+
+
+class NoWritePermissionAccess(WrongAccessPermissionLevel):
+    message = _("No write permissions access: %(reason)s.")
+
+
+class NoReadPermissionAccess(WrongAccessPermissionLevel):
+    message = _("No read permissions access: %(reason)s.")
+
+
 class SnapshotNotFound(NotFound):
     message = _("Snapshot %(snapshot_id)s could not be found.")
 

@@ -40,6 +40,9 @@
     "volume:delete_transfer": [],
     "volume:get_all_transfers": [],
 
+    "volume:create_volume_permission": [],
+    "volume:delete_volume_permission": [],
+
     "backup:create" : [],
     "backup:delete": [],
     "backup:get": [],
