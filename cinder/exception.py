@@ -215,6 +215,11 @@ class VolumeNotFound(NotFound):
     message = _("Volume %(volume_id)s could not be found.")
 
 
+class MultipleVolumesFound(NotFound):
+    message = _("Multiple volume matches found for '%(volume_id)s', "
+                "use an ID to be more specific.")
+
+
 class SfAccountNotFound(NotFound):
     message = _("Unable to locate account %(account_name)s on "
                 "Solidfire device")
@@ -262,6 +267,10 @@ class VolumeTypeNotFoundByName(VolumeTypeNotFound):
 class VolumeTypeExtraSpecsNotFound(NotFound):
     message = _("Volume Type %(volume_type_id)s has no extra specs with "
                 "key %(extra_specs_key)s.")
+
+
+class VolumePermissionNotFound(NotFound):
+    message = _("Volume Permission %(id)s could not be found.")
 
 
 class SnapshotNotFound(NotFound):

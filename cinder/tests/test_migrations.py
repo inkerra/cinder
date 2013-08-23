@@ -934,3 +934,40 @@ class TestMigrations(test.TestCase):
 
             self.assertFalse(engine.dialect.has_table(
                 engine.connect(), "quality_of_service_specs"))
+
+    def test_migration_019(self):
+        """
+        Test that adding and removing volume_acl_permissions table works
+        correctly.
+        """
+        ver = 19
+        for (key, engine) in self.engines.items():
+            migration_api.version_control(engine,
+                                          TestMigrations.REPOSITORY,
+                                          migration.INIT_VERSION)
+            migration_api.upgrade(engine, TestMigrations.REPOSITORY, ver - 1)
+            metadata = sqlalchemy.schema.MetaData()
+            metadata.bind = engine
+
+            migration_api.upgrade(engine, TestMigrations.REPOSITORY, ver)
+
+            self.assertTrue(engine.has_table("volume_acl_permissions"))
+
+            permissions = sqlalchemy.Table('volume_acl_permissions', metadata,
+                                           autoload=True)
+
+            self.assertTrue(isinstance(permissions.c.id.type,
+                                       sqlalchemy.types.INTEGER))
+            self.assertTrue(isinstance(permissions.c.volume_id.type,
+                                       sqlalchemy.types.VARCHAR))
+            self.assertTrue(isinstance(permissions.c.entity_id.type,
+                                       sqlalchemy.types.VARCHAR))
+            self.assertTrue(isinstance(permissions.c.access_permission.type,
+                                       sqlalchemy.types.INTEGER))
+            self.assertTrue(
+                isinstance(permissions.c.permission_list_access.type,
+                           sqlalchemy.types.INTEGER))
+
+            migration_api.downgrade(engine, TestMigrations.REPOSITORY, ver - 1)
+
+            self.assertFalse(engine.has_table("volume_acl_permissions"))
