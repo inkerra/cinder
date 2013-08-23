@@ -239,6 +239,11 @@ class VolumeNotFound(NotFound):
     message = _("Volume %(volume_id)s could not be found.")
 
 
+class MultipleVolumesFound(NotFound):
+    message = _("Multiple volume matches found for '%(volume_id)s', "
+                "use an ID to be more specific.")
+
+
 class SfAccountNotFound(NotFound):
     message = _("Unable to locate account %(account_name)s on "
                 "Solidfire device")

@@ -147,10 +147,6 @@ class VolumeMetadata(BASE, CinderBase):
 class VolumeACLPermission(BASE, CinderBase):
     """Represents ACL for a volume."""
     __tablename__ = 'volume_acl_permissions'
-    __table_args__ = (schema.UniqueConstraint("volume_id",
-                                              "type", "user_or_group_id",
-                                              "deleted", "deleted_at",
-                                              ),)
     id = Column(Integer, primary_key=True)
     volume_id = Column(String(36), ForeignKey('volumes.id'), nullable=False)
     type = Column(String(10), nullable=False)

@@ -16,7 +16,7 @@
 
 from cinder.openstack.common import log as logging
 from sqlalchemy import Column, MetaData, Boolean, Table
-from sqlalchemy import String, Integer, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import String, Integer, ForeignKey, DateTime
 
 LOG = logging.getLogger(__name__)
 
@@ -40,8 +40,6 @@ def upgrade(migrate_engine):
         Column('updated_at', DateTime),
         Column('deleted_at', DateTime),
         Column('deleted', Boolean),
-        UniqueConstraint('volume_id', 'type', 'user_or_group_id',
-                         'deleted', 'deleted_at'),
         mysql_engine='InnoDB'
     )
 

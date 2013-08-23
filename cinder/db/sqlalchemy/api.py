@@ -28,6 +28,7 @@ import warnings
 from oslo.config import cfg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
+from sqlalchemy.orm import exc as orm_exc
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import literal_column
 from sqlalchemy.sql import func
@@ -1174,14 +1175,14 @@ def _volume_get(context, volume_id, session=None):
 @require_context
 def volume_find(cxt, id_or_name):
     try:
-        result = volume_get(cxt, id_or_name)
-        return result
-    except exception.VolumeNotFound:
-        pass
-    result = _volume_get_query(cxt).filter_by(display_name=id_or_name).all()
-    if len(result) == 1:
-        return result[0]
-    raise exception.VolumeNotFound(volume_id=id_or_name)
+        return _volume_get_query(cxt).\
+            filter(
+                or_(models.Volume.id == id_or_name,
+                    models.Volume.display_name == id_or_name)).one()
+    except orm_exc.MultipleResultsFound:
+        raise exception.MultipleVolumesFound(volume_id=id_or_name)
+    except orm_exc.NoResultFound:
+        raise exception.VolumeNotFound(volume_id=id_or_name)
 
 
 @require_context
