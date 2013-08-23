@@ -213,6 +213,11 @@ def volume_get(context, volume_id):
     return IMPL.volume_get(context, volume_id)
 
 
+def volume_find(context, id_or_name):
+    """Get a volume or raise if it does not exist."""
+    return IMPL.volume_find(context, id_or_name)
+
+
 def volume_get_all(context, marker, limit, sort_key, sort_dir):
     """Get all volumes."""
     return IMPL.volume_get_all(context, marker, limit, sort_key, sort_dir)
@@ -233,6 +238,39 @@ def volume_get_all_by_project(context, project_id, marker, limit, sort_key,
     """Get all volumes belonging to a project."""
     return IMPL.volume_get_all_by_project(context, project_id, marker, limit,
                                           sort_key, sort_dir)
+
+
+def volume_permission_get(context, vol_perm_id):
+    """Get a volume permission record or raise if it does not exist."""
+    return IMPL.volume_permission_get(context, vol_perm_id)
+
+
+def volume_permission_get_all(cxt, marker, limit, sort_key, sort_dir):
+    """Get all volume permission records."""
+    return IMPL.volume_permission_get_all(cxt, marker, limit, sort_key,
+                                          sort_dir)
+
+
+def volume_permission_get_all_by_volume(context, vol_id):
+    """Get all volume ACL permissions belonging to a volume."""
+    return IMPL.volume_permission_get_all_by_volume(context, vol_id)
+
+
+def volume_permission_create_or_update(context, values):
+    """Create an entry in the volume_permissions table."""
+    return IMPL.volume_permission_create_or_update(context, values)
+
+
+def volume_permission_delete(context, vol_perm_id):
+    """Delete a record in the volume_permissions table."""
+    return IMPL.volume_permission_delete(context, vol_perm_id)
+
+
+def volume_permission_find(context, volume_id, entity_id,
+                           permission_type='user'):
+    """Get existing volume permission."""
+    return IMPL.volume_permission_find(context, volume_id, entity_id,
+                                       permission_type)
 
 
 def volume_get_iscsi_target_num(context, volume_id):
