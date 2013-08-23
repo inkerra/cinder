@@ -44,6 +44,7 @@ OPTION_REGEX = re.compile(r"(%s)" % "|".join([STROPT, BOOLOPT, INTOPT,
                                               FLOATOPT, LISTOPT,
                                               MULTISTROPT]))
 OPTION_HELP_INDENT = "####"
+OPTION_GROUP = None
 
 PY_EXT = ".py"
 BASEDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
@@ -51,8 +52,7 @@ WORDWRAP_WIDTH = 60
 
 
 def main(srcfiles):
-    print('\n'.join(['#' * 20, '# cinder.conf sample #', '#' * 20,
-                     '', '[DEFAULT]', '']))
+    print('\n'.join(['#' * 20, '# cinder.conf sample #', '#' * 20]))
     _list_opts(cfg.ConfigOpts,
                cfg.__name__ + ':' + cfg.ConfigOpts.__name__)
     mods_by_pkg = dict()
@@ -90,8 +90,11 @@ def _print_module(mod_str):
 
 def _list_opts(obj, name):
     opts = list()
+    group = None
     for attr_str in dir(obj):
         attr_obj = getattr(obj, attr_str)
+        if isinstance(attr_obj, cfg.OptGroup):
+            group = attr_obj.name
         if isinstance(attr_obj, cfg.Opt):
             opts.append(attr_obj)
         elif (isinstance(attr_obj, list) and
@@ -101,6 +104,15 @@ def _list_opts(obj, name):
         return
     global OPTION_COUNT
     OPTION_COUNT += len(opts)
+
+    global OPTION_GROUP
+    if group or OPTION_GROUP != 'DEFAULT':
+        if group:
+            OPTION_GROUP = group
+        else:
+            OPTION_GROUP = 'DEFAULT'
+        print('[%s]\n' % OPTION_GROUP)
+
     print('#')
     print('# Options defined in %s' % name)
     print('#')

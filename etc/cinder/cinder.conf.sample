@@ -1,7 +1,6 @@
 ####################
 # cinder.conf sample #
 ####################
-
 [DEFAULT]
 
 #
@@ -409,6 +408,14 @@
 # value)
 #volume_api_class=cinder.volume.api.API
 
+# The full class name of the volume ACL API class to use
+# (string value)
+#volume_acl_api_class=cinder.volume.volume_acl.api.API
+
+# The full class name of the volume ACL Identity class to use
+# (string value)
+#volume_acl_identity_class=cinder.volume.volume_acl.identity.keystone.API
+
 # The full class name of the volume backup API class (string
 # value)
 #backup_api_class=cinder.backup.api.API
@@ -700,6 +707,8 @@
 #notification_topics=notifications
 
 
+[rpc_notifier2]
+
 #
 # Options defined in cinder.openstack.common.notifier.rpc_notifier2
 #
@@ -707,6 +716,8 @@
 # AMQP topic(s) used for OpenStack notifications (list value)
 #topics=notifications
 
+
+[DEFAULT]
 
 #
 # Options defined in cinder.openstack.common.periodic_task
@@ -902,6 +913,8 @@
 #matchmaker_heartbeat_ttl=600
 
 
+[matchmaker_redis]
+
 #
 # Options defined in cinder.openstack.common.rpc.matchmaker_redis
 #
@@ -915,6 +928,8 @@
 # Password for Redis server. (optional) (string value)
 #password=<None>
 
+
+[DEFAULT]
 
 #
 # Options defined in cinder.scheduler.driver
@@ -1600,4 +1615,23 @@
 #volume_dd_blocksize=1M
 
 
-# Total option count: 342
+[keystone_authtoken]
+
+#
+# Options defined in cinder.volume.volume_acl.identity.keystone
+#
+
+# Authentication endpoint (string value)
+#auth_uri=<None>
+
+# Administrative user's tenant name (string value)
+#admin_tenant_name=<None>
+
+# Administrative user's id (string value)
+#admin_user=<None>
+
+# Administrative user's password (string value)
+#admin_password=<None>
+
+
+# Total option count: 348
