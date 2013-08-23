@@ -90,7 +90,8 @@ class API(base.Base):
         if len(found) == 1:
             return found[0].id
         try:
-            return self.ksc_v2.users.get(subject).id
+            found = self.ksc_v3.users.get(subject)
+            return found.id
         except exc.NotFound:
             raise
 
@@ -98,6 +99,7 @@ class API(base.Base):
         if subject == 'everyone':
             return subject
         try:
-            return self.ksc_v3.groups.get(subject).id
+            found = self.ksc_v3.groups.get(subject)
+            return found.id
         except exc.NotFound:
             raise

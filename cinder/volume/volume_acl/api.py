@@ -40,11 +40,48 @@ class API(base.Base):
         rv = self._volume_permission_get(cxt, volume_permission_id)
         return dict(rv.iteritems())
 
+    def _aggregate_permission(self, perms):
+        NoPermission, Read, Write, PermissionRead, PermissionWrite, \
+            ReadAndPermissionRead, WriteAndPermissionRead, FullAccess, \
+            ReadAndPermissionWrite = range(9)
+        res = NoPermission
+        for perm in perms:
+            addendum = perm.access_permission
+            if addendum == FullAccess:
+                return addendum
+            if res == addendum:
+                continue
+            maps = {
+                Read + Write: Write,
+                Read + PermissionRead: ReadAndPermissionRead,
+                Read + PermissionWrite: ReadAndPermissionWrite,
+                Read + ReadAndPermissionRead: ReadAndPermissionRead,
+                Read + WriteAndPermissionRead: WriteAndPermissionRead,
+                Write + PermissionRead: WriteAndPermissionRead,
+                Write + PermissionWrite: FullAccess,
+                Write + ReadAndPermissionRead: WriteAndPermissionRead,
+                Write + WriteAndPermissionRead: WriteAndPermissionRead,
+                PermissionRead + PermissionWrite: PermissionWrite,
+                PermissionRead + ReadAndPermissionRead: ReadAndPermissionRead,
+                PermissionRead + WriteAndPermissionRead:
+                WriteAndPermissionRead,
+                PermissionWrite + ReadAndPermissionRead:
+                ReadAndPermissionWrite,
+                PermissionWrite + WriteAndPermissionRead: FullAccess,
+                ReadAndPermissionRead + WriteAndPermissionRead:
+                WriteAndPermissionRead,
+            }
+            res = maps.get(res + addendum, res)
+            if res == FullAccess:
+                return res
+
+        return res
+
     def get_access(self, cxt, volume_id):
         vol = self.db.volume_find(cxt, volume_id)
         perm = self._volume_permission_get_by_user(cxt, vol.id)
         if perm:
-            return perm.access_permission
+            return self._aggregate_permission(perm)
         if cxt.is_admin or vol.user_id == cxt.user_id:
             return 7
         return 0
@@ -65,7 +102,10 @@ class API(base.Base):
         if subject == 'everyone':
             return subject
 
-        found = self.identity.get_group(subject)
+        try:
+            found = self.identity.get_group(subject)
+        except Exception:
+            raise exc.VolumePermissionSubjectNotFound(type='group', id=subject)
 
         if found:
             return found
@@ -89,27 +129,22 @@ class API(base.Base):
             perms)
 
         if for_user:
-            return for_user[0]
+            return for_user
 
         for_everyone = filter(
             lambda p: p.user_or_group_id == 'everyone',
             perms)
 
         if for_everyone:
-            return for_everyone[0]
+            return for_everyone
 
         for_group = filter(
             lambda p: p.type == 'group',
             perms)
 
-        perm = None
-        for p in for_group:
-            if self.identity.check_user_in_group(cxt.user_id,
-                                                 p.user_or_group_id):
-                if not perm or perm.access_permission < p.access_permission:
-                    perm = p
-
-        return perm
+        return filter(
+            lambda p: self.identity.check_user_in_group(
+                cxt.user_id, p.user_or_group_id), for_group)
 
     def _volume_permission_get(self, cxt, vol_perm_id):
         perm = self.db.volume_permission_get(cxt, vol_perm_id)
@@ -122,9 +157,10 @@ class API(base.Base):
         except exc.VolumeNotFound:
             raise exc.VolumePermissionNotFound(id=vol_perm_id)
 
-        actual_perm = self._volume_permission_get_by_user(cxt, perm.volume_id)
+        actual_perms = self._volume_permission_get_by_user(cxt, perm.volume_id)
+
         if not has_access and \
-           not (actual_perm and perm.id == actual_perm.id):
+           not (actual_perms and perm.id in (p.id for p in actual_perms)):
             r = _('wrong access permission level')
             raise exc.NoReadPermissionAccess(reason=r)
 
@@ -235,7 +271,7 @@ class API(base.Base):
         else:
             perm = self._volume_permission_get_by_user(cxt, vol_id)
             if perm:
-                res.append(perm)
+                res.extend(perm)
         return res
 
     def create(self, cxt, vol, user_or_group_id, perm_type='user',
