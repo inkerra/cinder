@@ -388,7 +388,8 @@ class BackupsAPITestCase(test.TestCase):
         req = webob.Request.blank('/v2/fake/backups')
         req.body = ('<backup display_name="backup-001" '
                     'display_description="Nightly Backup" '
-                    'volume_id="%s" container="Container001"/>' % volume_id)
+                    'volume_id="%s" container="Container001"/>'
+                    % volume_id).encode()
         req.method = 'POST'
         req.headers['Content-Type'] = 'application/xml'
         req.headers['Accept'] = 'application/xml'
@@ -654,7 +655,7 @@ class BackupsAPITestCase(test.TestCase):
         volume_id = self._create_volume(status='available', size=volume_size)
 
         req = webob.Request.blank('/v2/fake/backups/%s/restore' % backup_id)
-        req.body = '<restore volume_id="%s"/>' % volume_id
+        req.body = ('<restore volume_id="%s"/>' % volume_id).encode()
         req.method = 'POST'
         req.headers['Content-Type'] = 'application/xml'
         req.headers['Accept'] = 'application/xml'

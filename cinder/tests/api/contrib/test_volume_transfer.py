@@ -265,7 +265,7 @@ class VolumeTransferAPITestCase(test.TestCase):
 
         req = webob.Request.blank('/v2/fake/os-volume-transfer')
         req.body = ('<transfer display_name="transfer-001" '
-                    'volume_id="%s"/>' % volume_id)
+                    'volume_id="%s"/>' % volume_id).encode()
         req.method = 'POST'
         req.headers['Content-Type'] = 'application/xml'
         req.headers['Accept'] = 'application/xml'
